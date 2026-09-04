@@ -68,63 +68,55 @@ Thank you for choosing Nailuxe Studio!
 Panampilly Nagar, Kochi | +91 98407 00734`
   }
 
-  // Auto-capture rendered invoice as high-res PNG and copy to clipboard
+  // Helper to render visual invoice element as high-res PNG Blob using native SVG/browser rendering (supports oklch colors)
+  const captureInvoiceBlob = async (): Promise<Blob | null> => {
+    if (!printRef.current) return null
+    const { toBlob } = await import('html-to-image')
+    return await toBlob(printRef.current, {
+      quality: 0.95,
+      pixelRatio: 2,
+      backgroundColor: '#ffffff',
+    })
+  }
+
+  // Copy invoice image to clipboard
   const handleCopyInvoiceImage = async () => {
     if (!printRef.current) return
     setCopyingImage(true)
     const toastId = toast.loading('Capturing invoice image...')
     try {
-      const html2canvas = (await import('html2canvas')).default
-      const canvas = await html2canvas(printRef.current, {
-        scale: 2.5,
-        backgroundColor: '#ffffff',
-        useCORS: true,
-        logging: false,
-      })
-
-      canvas.toBlob(async (blob) => {
-        if (!blob) {
-          toast.error('Could not generate invoice image', { id: toastId })
-          setCopyingImage(false)
-          return
-        }
-
-        try {
-          if (navigator.clipboard && window.ClipboardItem) {
-            await navigator.clipboard.write([
-              new ClipboardItem({ 'image/png': blob }),
-            ])
-            toast.success('🎉 Invoice Image Copied! Just press Ctrl + V in WhatsApp to paste.', {
-              id: toastId,
-              duration: 5000,
-            })
-          } else {
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = `Invoice-${sale.invoiceNumber}.png`
-            a.click()
-            URL.revokeObjectURL(url)
-            toast.success('Invoice image downloaded! Attach it in WhatsApp.', { id: toastId })
-          }
-        } catch {
-          const url = URL.createObjectURL(blob)
-          const a = document.createElement('a')
-          a.href = url
-          a.download = `Invoice-${sale.invoiceNumber}.png`
-          a.click()
-          URL.revokeObjectURL(url)
-          toast.success('Invoice image downloaded! Attach it in WhatsApp.', { id: toastId })
-        }
+      const blob = await captureInvoiceBlob()
+      if (!blob) {
+        toast.error('Could not generate invoice image', { id: toastId })
         setCopyingImage(false)
-      }, 'image/png')
+        return
+      }
+
+      if (navigator.clipboard && window.ClipboardItem) {
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob }),
+        ])
+        toast.success('🎉 Invoice Image Copied! Press Ctrl + V in WhatsApp to paste.', {
+          id: toastId,
+          duration: 5000,
+        })
+      } else {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `Invoice-${sale.invoiceNumber}.png`
+        a.click()
+        URL.revokeObjectURL(url)
+        toast.success('Invoice image downloaded! Attach it in WhatsApp.', { id: toastId })
+      }
     } catch (err: unknown) {
       toast.error(`Capture failed: ${(err as Error).message}`, { id: toastId })
+    } finally {
       setCopyingImage(false)
     }
   }
 
-  const handleSendWhatsApp = () => {
+  const handleSendWhatsApp = async () => {
     let cleanPhone = (sale.customerPhone || '').replace(/[^0-9]/g, '')
     const isPlaceholder = !cleanPhone || cleanPhone.length < 10 || /^0+$/.test(cleanPhone)
 
@@ -139,6 +131,19 @@ Panampilly Nagar, Kochi | +91 98407 00734`
 
     if (cleanPhone.length === 10) {
       cleanPhone = '91' + cleanPhone
+    }
+
+    // Automatically copy the invoice picture to clipboard right as WhatsApp opens!
+    try {
+      const blob = await captureInvoiceBlob()
+      if (blob && navigator.clipboard && window.ClipboardItem) {
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob }),
+        ])
+        toast.success('📸 Invoice image copied! Just press Ctrl + V in WhatsApp to paste.', { duration: 6000 })
+      }
+    } catch {
+      // Proceed even if clipboard write had browser permissions delay
     }
 
     const message = getWhatsAppMessage()
