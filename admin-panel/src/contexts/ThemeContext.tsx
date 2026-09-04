@@ -23,11 +23,22 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const root = document.documentElement
+    const themeColor = theme === 'dark' ? '#141218' : '#FEF7FF'
+
     if (theme === 'dark') {
       root.classList.add('dark')
     } else {
       root.classList.remove('dark')
     }
+
+    // Dynamically update mobile browser/OS status bar and navigation bar color to match theme
+    try {
+      const metaTags = document.querySelectorAll('meta[name="theme-color"]')
+      metaTags.forEach(tag => tag.setAttribute('content', themeColor))
+    } catch {
+      // ignore
+    }
+
     try {
       window.localStorage.setItem(STORAGE_KEY, theme)
     } catch {
