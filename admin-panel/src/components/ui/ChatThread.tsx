@@ -1,0 +1,182 @@
+import { useEffect, useRef, useState } from 'react'
+import { Send, NotebookPen } from 'lucide-react'
+import { isToday, isYesterday, format } from 'date-fns'
+import { useStaffNotes, useSendStaffNote } from '../../hooks/useStaffNotes'
+import { uploadAudioToCloudinary } from '../../lib/cloudinary'
+import { VoiceRecorder } from './VoiceRecorder'
+import toast from 'react-hot-toast'
+
+interface ChatThreadProps {
+  staffId: string
+  currentSenderId: string
+  currentSenderRole: 'admin' | 'staff'
+  title?: string
+  emptyLabel?: string
+  height?: number | string
+}
+
+function timeLabel(iso: string) {
+  const d = new Date(iso)
+  return d.toLocaleString(undefined, { hour: 'numeric', minute: '2-digit' })
+}
+
+function dayLabel(iso: string) {
+  const d = new Date(iso)
+  if (isToday(d)) return 'Today'
+  if (isYesterday(d)) return 'Yesterday'
+  return format(d, 'MMM d, yyyy')
+}
+
+function fmtDuration(s: number | null) {
+  if (!s && s !== 0) return ''
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+}
+
+export function ChatThread({ staffId, currentSenderId, currentSenderRole, title, emptyLabel, height = 380 }: ChatThreadProps) {
+  const { data: notes = [], isLoading } = useStaffNotes(staffId)
+  const sendNote = useSendStaffNote(staffId)
+  const [text, setText] = useState('')
+  const [uploadingVoice, setUploadingVoice] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
+  }, [notes.length])
+
+  const handleSendText = async () => {
+    const trimmed = text.trim()
+    if (!trimmed) return
+    setText('')
+    try {
+      await sendNote.mutateAsync({ senderId: currentSenderId, senderRole: currentSenderRole, message: trimmed })
+    } catch (e: unknown) {
+      toast.error((e as Error).message)
+      setText(trimmed)
+    }
+  }
+
+  const handleSendVoice = async (blob: Blob, durationSeconds: number) => {
+    setUploadingVoice(true)
+    try {
+      const result = await uploadAudioToCloudinary(blob)
+      await sendNote.mutateAsync({
+        senderId: currentSenderId, senderRole: currentSenderRole,
+        voiceUrl: result.secure_url, voiceDuration: durationSeconds,
+      })
+    } catch (e: unknown) {
+      toast.error((e as Error).message)
+    }
+    setUploadingVoice(false)
+  }
+
+  return (
+    <div className="flex flex-col rounded-2xl border border-[#E8DEF8] dark:border-[#382E48] bg-white dark:bg-[#1D192B] overflow-hidden">
+      {title && (
+        <div className="flex items-center gap-[7px] px-3.5 py-2.5 border-b border-[#F3EDF7] dark:border-[#2B2930] bg-[#F3EDF7]/50 dark:bg-[#2B2930]/50">
+          <NotebookPen size={14} className="text-[#79747E] dark:text-[#938F99]" />
+          <span className="text-xs font-bold text-[#1D1A22] dark:text-[#E6E0E9]">{title}</span>
+        </div>
+      )}
+
+      <div
+        ref={scrollRef}
+        className="bg-[#FEF7FF] dark:bg-[#141218]"
+        style={{
+          height, overflowY: 'auto', padding: '14px', display: 'flex', flexDirection: 'column', gap: 2,
+          backgroundImage: 'radial-gradient(circle, rgba(0,0,0,0.035) 1px, transparent 1px)',
+          backgroundSize: '16px 16px',
+        }}
+      >
+        {isLoading ? (
+          <div className="text-center text-[#79747E] dark:text-[#938F99] text-xs py-5">Loading…</div>
+        ) : notes.length === 0 ? (
+          <div className="text-center text-[#79747E] dark:text-[#938F99] text-xs py-5">
+            {emptyLabel ?? 'No messages yet.'}
+          </div>
+        ) : (
+          notes.map((n, i) => {
+            const mine = n.sender_id === currentSenderId
+            const prev = notes[i - 1]
+            const isNewDay = !prev || dayLabel(prev.created_at) !== dayLabel(n.created_at)
+            const isConsecutive = !isNewDay && prev && prev.sender_id === n.sender_id
+            return (
+              <div key={n.id}>
+                {isNewDay && (
+                  <div style={{ display: 'flex', justifyContent: 'center', margin: '12px 0 10px' }}>
+                    <span
+                      className="bg-white/85 dark:bg-[#2B2930]/85 text-[#79747E] dark:text-[#938F99] shadow-sm"
+                      style={{
+                        fontSize: 10, fontWeight: 700,
+                        padding: '4px 12px', borderRadius: 99, textTransform: 'uppercase', letterSpacing: '0.05em',
+                      }}
+                    >
+                      {dayLabel(n.created_at)}
+                    </span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', marginTop: isConsecutive ? 2 : 10 }}>
+                  <div
+                    className={
+                      mine
+                        ? 'bg-[#6750A4] dark:bg-[#D0BCFF] text-white dark:text-[#381E72]'
+                        : 'bg-white dark:bg-[#2B2930] text-[#1D1A22] dark:text-[#E6E0E9] shadow-[0_1px_2px_rgba(0,0,0,0.06)] dark:shadow-none'
+                    }
+                    style={{
+                      maxWidth: '78%',
+                      padding: n.voice_url ? '8px 10px' : '9px 13px',
+                      borderRadius: mine ? '14px 14px 3px 14px' : '14px 14px 14px 3px',
+                    }}
+                  >
+                    {!mine && !isConsecutive && (
+                      <p
+                        className={n.sender_role === 'admin' ? 'text-pink-600 dark:text-pink-400' : 'text-[#79747E] dark:text-[#938F99]'}
+                        style={{ fontSize: 10, fontWeight: 700, marginBottom: 2 }}
+                      >
+                        {n.sender_role === 'admin' ? 'Owner' : 'Staff'}
+                      </p>
+                    )}
+                    {n.message && (
+                      <p style={{ fontSize: 13, lineHeight: 1.45, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{n.message}</p>
+                    )}
+                    {n.voice_url && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <audio src={n.voice_url} controls style={{ height: 32, maxWidth: 200 }} />
+                        {n.voice_duration != null && (
+                          <span style={{ fontSize: 10, opacity: 0.7 }}>{fmtDuration(n.voice_duration)}</span>
+                        )}
+                      </div>
+                    )}
+                    <p style={{ fontSize: 9, marginTop: 4, opacity: 0.55, textAlign: 'right' }}>
+                      {timeLabel(n.created_at)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      <div className="border-t border-[#F3EDF7] dark:border-[#2B2930] bg-[#F3EDF7]/50 dark:bg-[#2B2930]/50" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px' }}>
+        <VoiceRecorder onSend={handleSendVoice} sending={uploadingVoice} />
+        <input
+          type="text"
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') handleSendText() }}
+          placeholder="Type a reply…"
+          className="border border-[#CAC4D0] dark:border-[#44474F] bg-white dark:bg-[#2B2930] text-[#1D1A22] dark:text-[#E6E0E9]"
+          style={{ flex: 1, borderRadius: 99, padding: '9px 14px', fontSize: 13, outline: 'none', fontFamily: 'Inter, sans-serif' }}
+        />
+        <button
+          onClick={handleSendText}
+          disabled={!text.trim() || sendNote.isPending}
+          className="bg-[#6750A4] dark:bg-[#D0BCFF] text-white dark:text-[#381E72]"
+          style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, opacity: !text.trim() ? 0.4 : 1 }}
+        >
+          <Send size={15} />
+        </button>
+      </div>
+    </div>
+  )
+}
