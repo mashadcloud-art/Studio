@@ -1,6 +1,6 @@
-import React, { useRef } from 'react'
+import React, { useRef, useState } from 'react'
 import { Modal } from '../ui/Modal'
-import { Printer, Download, CheckCircle2, MessageSquare, Phone, User, Calendar, Scissors, Copy } from 'lucide-react'
+import { Printer, Download, CheckCircle2, MessageSquare, Phone, User, Calendar, Scissors, Copy, Camera } from 'lucide-react'
 import { formatCurrency, formatDate } from '../../lib/utils'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -44,27 +44,85 @@ export function InvoiceModal({ open, onClose, sale }: InvoiceModalProps) {
 
   if (!sale) return null
 
-  // Build rich WhatsApp message
+  const [copyingImage, setCopyingImage] = useState(false)
+
+  // Build clean, professional WhatsApp message
   const getWhatsAppMessage = () => {
     const servicesList = sale.services
-      .map(s => `• ${s.name}: ${formatCurrency(s.price)}`)
+      .map(s => `  * ${s.name}: ${formatCurrency(s.price)}`)
       .join('\n')
 
-    return `✨ *NAILUXE STUDIO — INVOICE* ✨
-━━━━━━━━━━━━━━━━━━━━
-📄 *Invoice #:* ${sale.invoiceNumber}
-📅 *Date:* ${formatDate(sale.date)}
-👤 *Customer:* ${sale.customerName}
-💅 *Staff / Stylist:* ${sale.staffName}
+    return `*NAILUXE STUDIO — INVOICE*
+----------------------------------------
+*Invoice #:* ${sale.invoiceNumber}
+*Date:* ${formatDate(sale.date)}
+*Customer:* ${sale.customerName}
+*Staff / Stylist:* ${sale.staffName}
 
 *Services Provided:*
-${servicesList}
-${sale.discountAmount > 0 ? `\n🏷️ *Discount:* -${formatCurrency(sale.discountAmount)}` : ''}
-━━━━━━━━━━━━━━━━━━━━
-💰 *Total Paid:* *${formatCurrency(sale.totalAmount)}*
-💳 *Payment Mode:* ${sale.paymentMethod?.toUpperCase() || 'PAID'}
-━━━━━━━━━━━━━━━━━━━━
-Thank you for choosing *Nailuxe Studio*! 💅✨ We hope to see you again soon.`
+${servicesList}${sale.discountAmount > 0 ? `\n*Discount:* -${formatCurrency(sale.discountAmount)}` : ''}
+----------------------------------------
+*Total Amount:* *${formatCurrency(sale.totalAmount)}*
+*Payment Mode:* ${sale.paymentMethod?.toUpperCase() || 'PAID'}
+----------------------------------------
+Thank you for choosing Nailuxe Studio!
+Panampilly Nagar, Kochi | +91 98407 00734`
+  }
+
+  // Auto-capture rendered invoice as high-res PNG and copy to clipboard
+  const handleCopyInvoiceImage = async () => {
+    if (!printRef.current) return
+    setCopyingImage(true)
+    const toastId = toast.loading('Capturing invoice image...')
+    try {
+      const html2canvas = (await import('html2canvas')).default
+      const canvas = await html2canvas(printRef.current, {
+        scale: 2.5,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false,
+      })
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          toast.error('Could not generate invoice image', { id: toastId })
+          setCopyingImage(false)
+          return
+        }
+
+        try {
+          if (navigator.clipboard && window.ClipboardItem) {
+            await navigator.clipboard.write([
+              new ClipboardItem({ 'image/png': blob }),
+            ])
+            toast.success('🎉 Invoice Image Copied! Just press Ctrl + V in WhatsApp to paste.', {
+              id: toastId,
+              duration: 5000,
+            })
+          } else {
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `Invoice-${sale.invoiceNumber}.png`
+            a.click()
+            URL.revokeObjectURL(url)
+            toast.success('Invoice image downloaded! Attach it in WhatsApp.', { id: toastId })
+          }
+        } catch {
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = `Invoice-${sale.invoiceNumber}.png`
+          a.click()
+          URL.revokeObjectURL(url)
+          toast.success('Invoice image downloaded! Attach it in WhatsApp.', { id: toastId })
+        }
+        setCopyingImage(false)
+      }, 'image/png')
+    } catch (err: unknown) {
+      toast.error(`Capture failed: ${(err as Error).message}`, { id: toastId })
+      setCopyingImage(false)
+    }
   }
 
   const handleSendWhatsApp = () => {
@@ -345,7 +403,15 @@ Thank you for choosing *Nailuxe Studio*! 💅✨ We hope to see you again soon.`
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={handleCopyInvoiceImage}
+              disabled={copyingImage}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-[#6750A4] to-[#503E84] hover:from-[#785EBF] hover:to-[#5E4A9B] text-white shadow-xs transition-all border border-purple-400/30"
+              title="Copy invoice image to clipboard — then just press Ctrl+V in WhatsApp!">
+              <Camera size={13} />
+              {copyingImage ? 'Capturing...' : '📷 Copy Image (Ctrl+V)'}
+            </button>
             <button
               onClick={handleSendWhatsApp}
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#25D366] hover:bg-[#1EBE5D] text-white shadow-xs transition-colors"
@@ -355,7 +421,7 @@ Thank you for choosing *Nailuxe Studio*! 💅✨ We hope to see you again soon.`
             <button
               onClick={handleCopyMessage}
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-[#1D192B] border border-[#CAC4D0] dark:border-[#49454F] text-[#1D1A22] dark:text-[#E6E0E9] hover:bg-gray-50 dark:hover:bg-[#2B2930] transition-colors shadow-2xs"
-              title="Copy invoice message to clipboard">
+              title="Copy invoice text to clipboard">
               <Copy size={13} /> Copy Text
             </button>
             <button
