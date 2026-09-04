@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react'
 import { Modal } from '../ui/Modal'
-import { Printer, Download, CheckCircle2, MessageSquare, Phone, User, Calendar, Scissors, Copy, Camera } from 'lucide-react'
+import { Printer, Download, CheckCircle2, MessageSquare, Phone, User, Calendar, Scissors, Copy, Camera, MoreVertical, Share2 } from 'lucide-react'
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { formatCurrency, formatDate } from '../../lib/utils'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -399,45 +400,84 @@ Panampilly Nagar, Kochi | +91 98407 00734`
   return (
     <Modal open={open} onClose={onClose} title={`Invoice #${sale.invoiceNumber}`} size="lg">
       <div className="space-y-6">
-        {/* Action Toolbar */}
-        <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-[#F3EDF7] dark:bg-[#2B2930] rounded-xl border border-[#E8DEF8] dark:border-[#382E48]">
+        {/* Luxury Clean Action Toolbar */}
+        <div className="flex items-center justify-between gap-3 p-2.5 sm:p-3 bg-white dark:bg-[#1E1B2E] rounded-2xl border border-[#E8DEF8] dark:border-[#382E48] shadow-xs">
+          {/* Status Badge */}
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300">
-              <CheckCircle2 size={14} /> PAID ({sale.paymentMethod?.toUpperCase() || 'CASH'})
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25">
+              <CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span>PAID</span>
+              <span className="text-[10px] font-bold opacity-75 uppercase tracking-wider">• {sale.paymentMethod?.toUpperCase() || 'CASH'}</span>
             </span>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={handleCopyInvoiceImage}
-              disabled={copyingImage}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-[#6750A4] to-[#503E84] hover:from-[#785EBF] hover:to-[#5E4A9B] text-white shadow-xs transition-all border border-purple-400/30"
-              title="Copy invoice image to clipboard — then just press Ctrl+V in WhatsApp!">
-              <Camera size={13} />
-              {copyingImage ? 'Capturing...' : '📷 Copy Image (Ctrl+V)'}
-            </button>
+          {/* Primary Action Buttons */}
+          <div className="flex items-center gap-2">
+            {/* Primary WhatsApp Button */}
             <button
               onClick={handleSendWhatsApp}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#25D366] hover:bg-[#1EBE5D] text-white shadow-xs transition-colors"
-              title="Send invoice via WhatsApp">
-              <MessageSquare size={14} /> Send WhatsApp
+              className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-black bg-[#25D366] hover:bg-[#1ebd5a] text-white shadow-sm hover:shadow-md transition-all active:scale-95 cursor-pointer"
+              title="Send invoice via WhatsApp"
+            >
+              <MessageSquare size={15} className="fill-white/20 shrink-0" />
+              <span>Send WhatsApp</span>
             </button>
-            <button
-              onClick={handleCopyMessage}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-[#1D192B] border border-[#CAC4D0] dark:border-[#49454F] text-[#1D1A22] dark:text-[#E6E0E9] hover:bg-gray-50 dark:hover:bg-[#2B2930] transition-colors shadow-2xs"
-              title="Copy invoice text to clipboard">
-              <Copy size={13} /> Copy Text
-            </button>
+
+            {/* Download PDF Button */}
             <button
               onClick={handleDownloadPDF}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-[#1D192B] border border-[#CAC4D0] dark:border-[#49454F] text-[#1D1A22] dark:text-[#E6E0E9] hover:bg-gray-50 transition-colors shadow-2xs">
-              <Download size={14} /> Download PDF
+              className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-xl text-xs font-bold bg-[#6750A4] hover:bg-[#584291] text-white shadow-sm hover:shadow-md transition-all active:scale-95 cursor-pointer"
+              title="Download PDF Invoice"
+            >
+              <Download size={14} className="shrink-0" />
+              <span>PDF</span>
             </button>
-            <button
-              onClick={handlePrint}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-[#1D192B] border border-[#CAC4D0] dark:border-[#49454F] text-[#1D1A22] dark:text-[#E6E0E9] hover:bg-gray-50 transition-colors shadow-2xs">
-              <Printer size={14} /> Print
-            </button>
+
+            {/* More Options Dropdown */}
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger asChild>
+                <button
+                  className="p-2 rounded-xl text-[#49454F] dark:text-[#CAC4D0] hover:bg-[#F3EDF7] dark:hover:bg-[#2B2930] border border-[#E8DEF8] dark:border-[#382E48] transition active:scale-95 cursor-pointer"
+                  title="More actions"
+                >
+                  <MoreVertical size={16} />
+                </button>
+              </DropdownMenu.Trigger>
+
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content
+                  align="end"
+                  sideOffset={6}
+                  className="z-50 min-w-[210px] bg-white dark:bg-[#1E1B2E] p-1.5 rounded-2xl shadow-xl border border-[#E8DEF8] dark:border-[#382E48] text-xs animate-in fade-in-50 zoom-in-95"
+                >
+                  <DropdownMenu.Item
+                    onClick={handleCopyInvoiceImage}
+                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-[#F3EDF7] dark:hover:bg-[#2B2930] cursor-pointer outline-none text-[#1D1A22] dark:text-[#E6E0E9] font-medium transition-colors"
+                  >
+                    <Camera size={15} className="text-[#6750A4] dark:text-[#D0BCFF]" />
+                    <span>{copyingImage ? 'Capturing Image...' : 'Copy Invoice Image'}</span>
+                  </DropdownMenu.Item>
+
+                  <DropdownMenu.Item
+                    onClick={handleCopyMessage}
+                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-[#F3EDF7] dark:hover:bg-[#2B2930] cursor-pointer outline-none text-[#1D1A22] dark:text-[#E6E0E9] font-medium transition-colors"
+                  >
+                    <Copy size={15} className="text-[#6750A4] dark:text-[#D0BCFF]" />
+                    <span>Copy Text Summary</span>
+                  </DropdownMenu.Item>
+
+                  <DropdownMenu.Separator className="h-px bg-[#E8DEF8] dark:bg-[#382E48] my-1" />
+
+                  <DropdownMenu.Item
+                    onClick={handlePrint}
+                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-[#F3EDF7] dark:hover:bg-[#2B2930] cursor-pointer outline-none text-[#1D1A22] dark:text-[#E6E0E9] font-medium transition-colors"
+                  >
+                    <Printer size={15} className="text-[#6750A4] dark:text-[#D0BCFF]" />
+                    <span>Print Invoice</span>
+                  </DropdownMenu.Item>
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
           </div>
         </div>
 
