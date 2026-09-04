@@ -1,6 +1,6 @@
 import React, { useRef } from 'react'
 import { Modal } from '../ui/Modal'
-import { Printer, Download, CheckCircle2, MessageSquare, Phone, User, Calendar, Scissors } from 'lucide-react'
+import { Printer, Download, CheckCircle2, MessageSquare, Phone, User, Calendar, Scissors, Copy } from 'lucide-react'
 import { formatCurrency, formatDate } from '../../lib/utils'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -44,18 +44,13 @@ export function InvoiceModal({ open, onClose, sale }: InvoiceModalProps) {
 
   if (!sale) return null
 
-  // Format phone for WhatsApp
-  const getWhatsAppLink = () => {
-    let cleanPhone = sale.customerPhone.replace(/[^0-9]/g, '')
-    if (cleanPhone.length === 10) {
-      cleanPhone = '91' + cleanPhone
-    }
-
+  // Build rich WhatsApp message
+  const getWhatsAppMessage = () => {
     const servicesList = sale.services
       .map(s => `• ${s.name}: ${formatCurrency(s.price)}`)
       .join('\n')
 
-    const message = `✨ *NAILUXE STUDIO — INVOICE* ✨
+    return `✨ *NAILUXE STUDIO — INVOICE* ✨
 ━━━━━━━━━━━━━━━━━━━━
 📄 *Invoice #:* ${sale.invoiceNumber}
 📅 *Date:* ${formatDate(sale.date)}
@@ -70,16 +65,37 @@ ${sale.discountAmount > 0 ? `\n🏷️ *Discount:* -${formatCurrency(sale.discou
 💳 *Payment Mode:* ${sale.paymentMethod?.toUpperCase() || 'PAID'}
 ━━━━━━━━━━━━━━━━━━━━
 Thank you for choosing *Nailuxe Studio*! 💅✨ We hope to see you again soon.`
-
-    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`
   }
 
   const handleSendWhatsApp = () => {
-    if (!sale.customerPhone || sale.customerPhone === '0000000000') {
-      toast.error('Customer has no valid phone number recorded')
-      return
+    let cleanPhone = (sale.customerPhone || '').replace(/[^0-9]/g, '')
+    const isPlaceholder = !cleanPhone || cleanPhone.length < 10 || /^0+$/.test(cleanPhone)
+
+    if (isPlaceholder) {
+      const inputPhone = window.prompt(
+        `Customer ${sale.customerName} currently has no valid phone number on file (${sale.customerPhone || 'blank'}).\n\nEnter 10-digit WhatsApp number to send invoice:`,
+        ''
+      )
+      if (!inputPhone) return
+      cleanPhone = inputPhone.replace(/[^0-9]/g, '')
     }
-    window.open(getWhatsAppLink(), '_blank')
+
+    if (cleanPhone.length === 10) {
+      cleanPhone = '91' + cleanPhone
+    }
+
+    const message = getWhatsAppMessage()
+    const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`
+    window.open(url, '_blank')
+  }
+
+  const handleCopyMessage = async () => {
+    try {
+      await navigator.clipboard.writeText(getWhatsAppMessage())
+      toast.success('Invoice text copied to clipboard!')
+    } catch {
+      toast.error('Could not copy text to clipboard')
+    }
   }
 
   const handlePrint = () => {
@@ -335,6 +351,12 @@ Thank you for choosing *Nailuxe Studio*! 💅✨ We hope to see you again soon.`
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#25D366] hover:bg-[#1EBE5D] text-white shadow-xs transition-colors"
               title="Send invoice via WhatsApp">
               <MessageSquare size={14} /> Send WhatsApp
+            </button>
+            <button
+              onClick={handleCopyMessage}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-[#1D192B] border border-[#CAC4D0] dark:border-[#49454F] text-[#1D1A22] dark:text-[#E6E0E9] hover:bg-gray-50 dark:hover:bg-[#2B2930] transition-colors shadow-2xs"
+              title="Copy invoice message to clipboard">
+              <Copy size={13} /> Copy Text
             </button>
             <button
               onClick={handleDownloadPDF}
