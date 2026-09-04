@@ -41,10 +41,9 @@ interface InvoiceModalProps {
 
 export function InvoiceModal({ open, onClose, sale }: InvoiceModalProps) {
   const printRef = useRef<HTMLDivElement>(null)
+  const [copyingImage, setCopyingImage] = useState(false)
 
   if (!sale) return null
-
-  const [copyingImage, setCopyingImage] = useState(false)
 
   // Build clean, professional WhatsApp message
   const getWhatsAppMessage = () => {
