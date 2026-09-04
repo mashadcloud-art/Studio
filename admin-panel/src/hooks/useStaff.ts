@@ -67,14 +67,23 @@ export function useUpdateStaff() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Staff> }) => {
-      const { data, error } = await db
-        .from('staff')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single()
-      if (error) throw error
-      return data as Staff
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let payload: any = { ...updates }
+      let res = await db.from('staff').update(payload).eq('id', id).select().single()
+
+      // If schema cache says column not found (e.g. overtime_rate, staff_code, etc.)
+      while (res.error && res.error.message?.includes('schema cache')) {
+        const match = res.error.message.match(/'([^']+)' column/)
+        if (match && match[1] && match[1] in payload) {
+          delete payload[match[1]]
+          res = await db.from('staff').update(payload).eq('id', id).select().single()
+        } else {
+          break
+        }
+      }
+
+      if (res.error) throw res.error
+      return res.data as Staff
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['staff'] }),
   })

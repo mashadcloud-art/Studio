@@ -176,7 +176,8 @@ export function StaffFormModal({ open, onClose, editingStaff }: StaffFormModalPr
         if (authData?.user?.id) {
           createdUserId = authData.user.id
 
-          const { error: staffError } = await db.from('staff').insert({
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const insertPayload: any = {
             id: createdUserId,
             name: formattedName,
             phone: data.phone,
@@ -188,10 +189,21 @@ export function StaffFormModal({ open, onClose, editingStaff }: StaffFormModalPr
             role: data.role,
             speciality: data.speciality || 'General',
             active: true,
-          })
+          }
 
-          if (staffError) {
-            throw new Error(`Staff record error: ${staffError.message}`)
+          let staffRes = await db.from('staff').insert(insertPayload)
+          while (staffRes.error && staffRes.error.message?.includes('schema cache')) {
+            const match = staffRes.error.message.match(/'([^']+)' column/)
+            if (match && match[1] && match[1] in insertPayload) {
+              delete insertPayload[match[1]]
+              staffRes = await db.from('staff').insert(insertPayload)
+            } else {
+              break
+            }
+          }
+
+          if (staffRes.error) {
+            throw new Error(`Staff record error: ${staffRes.error.message}`)
           }
         } else {
           throw new Error('Could not create auth user. Please run supabase/create_admin_user.sql in Supabase SQL editor.')
