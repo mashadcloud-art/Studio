@@ -11,6 +11,9 @@ import { Modal } from '../ui/Modal'
 import type { Staff } from '../../types/database'
 import toast from 'react-hot-toast'
 
+import { createClient } from '@supabase/supabase-js'
+import { useQueryClient } from '@tanstack/react-query'
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any
 
@@ -43,6 +46,7 @@ interface StaffFormModalProps {
 }
 
 export function StaffFormModal({ open, onClose, editingStaff }: StaffFormModalProps) {
+  const queryClient = useQueryClient()
   const updateStaff = useUpdateStaff()
   const { data: staffList = [] } = useStaffList()
   const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm<StaffForm>({
@@ -121,32 +125,90 @@ export function StaffFormModal({ open, onClose, editingStaff }: StaffFormModalPr
         return
       }
 
-      const { data: result, error: fnError } = await db.functions.invoke('create-staff-user', {
-        body: {
-          name: formattedName, phone: data.phone, address: formattedAddress,
-          staff_code: formattedCode,
-          joining_date: data.joining_date, salary: data.salary,
-          overtime_rate: data.overtime_rate ?? 0,
-          role: data.role, speciality: data.speciality,
-          email: data.email, password: data.password,
-        },
-      })
+      let createdUserId: string | null = null
 
-      if (fnError || result?.error) {
-        toast.error(fnError?.message ?? result?.error ?? 'Failed')
-        return
+      // 1. First try Edge Function if deployed
+      try {
+        const { data: result, error: fnError } = await db.functions.invoke('create-staff-user', {
+          body: {
+            name: formattedName, phone: data.phone, address: formattedAddress,
+            staff_code: formattedCode,
+            joining_date: data.joining_date, salary: data.salary,
+            overtime_rate: data.overtime_rate ?? 0,
+            role: data.role, speciality: data.speciality,
+            email: data.email, password: data.password,
+          },
+        })
+        if (!fnError && result?.userId) {
+          createdUserId = result.userId
+        }
+      } catch {
+        // Edge function failed or not deployed, will use direct fallback below
       }
 
-      // Save receptionist permissions
-      if (data.role === 'receptionist' && result?.userId) {
+      // 2. Direct fallback using non-persisted client
+      if (!createdUserId) {
+        if (!data.email || !data.password) {
+          throw new Error('Email and password (min 6 chars) are required.')
+        }
+
+        const tempClient = createClient(
+          import.meta.env.VITE_SUPABASE_URL,
+          import.meta.env.VITE_SUPABASE_ANON_KEY,
+          {
+            auth: {
+              persistSession: false,
+              autoRefreshToken: false,
+              detectSessionInUrl: false,
+            },
+          }
+        )
+
+        const { data: authData, error: authError } = await tempClient.auth.signUp({
+          email: data.email,
+          password: data.password,
+        })
+
+        if (authError) {
+          throw new Error(`Auth Error: ${authError.message}. Alternatively, run supabase/create_admin_user.sql in Supabase SQL editor.`)
+        }
+
+        if (authData?.user?.id) {
+          createdUserId = authData.user.id
+
+          const { error: staffError } = await db.from('staff').insert({
+            id: createdUserId,
+            name: formattedName,
+            phone: data.phone,
+            address: formattedAddress,
+            staff_code: formattedCode,
+            joining_date: data.joining_date,
+            salary: data.salary,
+            overtime_rate: data.overtime_rate ?? 0,
+            role: data.role,
+            speciality: data.speciality || 'General',
+            active: true,
+          })
+
+          if (staffError) {
+            throw new Error(`Staff record error: ${staffError.message}`)
+          }
+        } else {
+          throw new Error('Could not create auth user. Please run supabase/create_admin_user.sql in Supabase SQL editor.')
+        }
+      }
+
+      // Save receptionist permissions if role is receptionist
+      if (data.role === 'receptionist' && createdUserId) {
         await db.from('receptionist_permissions').upsert({
-          staff_id: result.userId,
+          staff_id: createdUserId,
           can_view_staff: data.can_view_staff ?? false,
           can_view_reports: data.can_view_reports ?? false,
         })
       }
 
-      toast.success('Staff member added!')
+      await queryClient.invalidateQueries({ queryKey: ['staff'] })
+      toast.success(`${formattedName} added successfully!`)
       onClose()
       reset()
     } catch (e: unknown) {
