@@ -14,6 +14,7 @@ import toast from 'react-hot-toast'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
+import { loadLogoBase64, drawLuxuryPdfHeader, drawSummaryCards, drawSectionHeader, stampLuxuryFooter } from '../../lib/pdfTemplate'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any
@@ -153,54 +154,105 @@ export function StaffWorkPage() {
 
   const fileSlug = `${(staff?.name ?? 'staff').replace(/\s+/g, '-').toLowerCase()}-${year}-${String(month).padStart(2, '0')}`
 
-  const exportPDF = () => {
+  const exportPDF = async () => {
     if (!staff) return
-    const doc = new jsPDF()
-    doc.setFontSize(18)
-    doc.text(`${staff.name} — Work Report`, 14, 20)
-    doc.setFontSize(11)
-    doc.setTextColor(120)
-    doc.text(periodLabel, 14, 28)
-    doc.setTextColor(0)
+    const toastId = toast.loading('Generating luxury report...')
+    try {
+      const logoBase64 = await loadLogoBase64()
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
 
-    doc.setFontSize(11)
-    doc.text(`Revenue: ${formatCurrencyPDF(report?.totalRevenue ?? 0)}   |   Clients Served: ${distinctClients}   |   Services Done: ${rows.length}`, 14, 40)
-    doc.text(`Days Present: ${daysPresent}   |   Days Absent: ${daysAbsent}   |   Days Leave: ${daysLeave}`, 14, 48)
-    doc.text(`Regular Hours: ${minutesToHoursMinutes(regularWorkedMin)}   |   Overtime (Approved): ${minutesToHoursMinutes(approvedOvertimeMin)}`, 14, 56)
-    doc.text(`Overtime Pay: ${formatCurrencyPDF(overtimePay)}`, 14, 64)
+      // 1. Luxury Purple & Gold Header Banner
+      drawLuxuryPdfHeader({
+        doc,
+        reportTitle: 'Staff Performance Report',
+        subtitle: 'Luxury Nail Care & Beauty Experience',
+        staffName: staff.name,
+        periodLabel,
+        logoBase64,
+      })
 
-    doc.setFontSize(14)
-    doc.text('Work Log', 14, 78)
-    autoTable(doc, {
-      startY: 83,
-      head: [['Date', 'Customer', 'Service', 'Time', 'Duration', 'Amount']],
-      body: rows.map(r => [
-        formatDate(r.date), r.customerName, r.serviceName,
-        `${formatTime(r.startTime)}${r.endTime ? ` – ${formatTime(r.endTime)}` : ''}`,
-        calculateDuration(r.startTime, r.endTime), formatCurrencyPDF(r.amount),
-      ]),
-      headStyles: { fillColor: [103, 80, 164] },
-      styles: { fontSize: 8 },
-      columnStyles: { 5: { halign: 'right' } },
-    })
+      // 2. Executive KPI Summary Cards
+      const nextY = drawSummaryCards(doc, 48, [
+        {
+          label: 'Total Revenue',
+          value: formatCurrencyPDF(report?.totalRevenue ?? 0),
+          sublabel: `${distinctClients} Clients · ${rows.length} Services`,
+          accentColor: [212, 175, 55], // Gold
+        },
+        {
+          label: 'Attendance',
+          value: `${daysPresent} Days Present`,
+          sublabel: `${daysAbsent} Absent · ${daysLeave} Leave`,
+          accentColor: [16, 185, 129], // Emerald
+        },
+        {
+          label: 'Working Hours',
+          value: minutesToHoursMinutes(regularWorkedMin),
+          sublabel: 'Regular Shift Time',
+          accentColor: [103, 80, 164], // Purple
+        },
+        {
+          label: 'Overtime',
+          value: minutesToHoursMinutes(approvedOvertimeMin),
+          sublabel: `Pay: ${formatCurrencyPDF(overtimePay)}`,
+          accentColor: [245, 158, 11], // Amber
+        },
+      ])
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const finalY = (doc as any).lastAutoTable.finalY + 12
-    doc.setFontSize(14)
-    doc.text('Attendance', 14, finalY)
-    autoTable(doc, {
-      startY: finalY + 5,
-      head: [['Date', 'Status', 'Worked', 'Overtime (Approved)']],
-      body: attendanceRows.map(a => [
-        formatDate(a.date), a.status, minutesToHoursMinutes(a.workedMin),
-        a.overtimeMin > 0 ? minutesToHoursMinutes(a.overtimeMin) : '—',
-      ]),
-      headStyles: { fillColor: [127, 103, 190] },
-      styles: { fontSize: 8 },
-    })
+      // 3. Section: Work Log Table
+      const workHeaderY = drawSectionHeader(doc, 'SERVICE & WORK RECORDS LOG', nextY + 3, [56, 30, 114])
+      autoTable(doc, {
+        startY: workHeaderY,
+        head: [['DATE', 'CUSTOMER', 'SERVICE PERFORMED', 'TIMING', 'DURATION', 'AMOUNT']],
+        body: rows.map(r => [
+          formatDate(r.date),
+          r.customerName,
+          r.serviceName,
+          `${formatTime(r.startTime)}${r.endTime ? ` – ${formatTime(r.endTime)}` : ''}`,
+          calculateDuration(r.startTime, r.endTime),
+          formatCurrencyPDF(r.amount),
+        ]),
+        foot: [['TOTAL REVENUE', '', '', '', `${rows.length} Services Done`, formatCurrencyPDF(report?.totalRevenue ?? 0)]],
+        headStyles: { fillColor: [56, 30, 114], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
+        footStyles: { fillColor: [243, 237, 247], textColor: [56, 30, 114], fontStyle: 'bold', fontSize: 8 },
+        alternateRowStyles: { fillColor: [252, 250, 255] },
+        styles: { fontSize: 8, cellPadding: 2.2, lineColor: [232, 222, 248], lineWidth: 0.1 },
+        columnStyles: {
+          0: { cellWidth: 25 },
+          1: { fontStyle: 'bold' },
+          4: { halign: 'center' },
+          5: { halign: 'right', fontStyle: 'bold', textColor: [56, 30, 114] },
+        },
+        margin: { left: 14, right: 14 },
+      })
 
-    doc.save(`${fileSlug}.pdf`)
-    toast.success('PDF exported!')
+      // 4. Section: Attendance Log Table
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const finalY = (doc as any).lastAutoTable.finalY + 8
+      const attHeaderY = drawSectionHeader(doc, 'MONTHLY ATTENDANCE & SHIFT BREAKDOWN', finalY, [103, 80, 164])
+      autoTable(doc, {
+        startY: attHeaderY,
+        head: [['DATE', 'ATTENDANCE STATUS', 'HOURS WORKED', 'OVERTIME (APPROVED)']],
+        body: attendanceRows.map(a => [
+          formatDate(a.date),
+          a.status.toUpperCase(),
+          minutesToHoursMinutes(a.workedMin),
+          a.overtimeMin > 0 ? minutesToHoursMinutes(a.overtimeMin) : '—',
+        ]),
+        headStyles: { fillColor: [103, 80, 164], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
+        alternateRowStyles: { fillColor: [252, 250, 255] },
+        styles: { fontSize: 8, cellPadding: 2, lineColor: [232, 222, 248], lineWidth: 0.1 },
+        margin: { left: 14, right: 14 },
+      })
+
+      // 5. Stamp Luxury Footer across all pages
+      stampLuxuryFooter(doc, `${staff.name.toUpperCase()} PERFORMANCE RECORD`)
+
+      doc.save(`${fileSlug}.pdf`)
+      toast.success('Luxury PDF exported!', { id: toastId })
+    } catch (e: unknown) {
+      toast.error(`Export failed: ${(e as Error).message}`, { id: toastId })
+    }
   }
 
   const exportExcel = () => {

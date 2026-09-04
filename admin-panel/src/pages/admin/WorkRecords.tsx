@@ -13,6 +13,7 @@ import toast from 'react-hot-toast'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
+import { loadLogoBase64, drawLuxuryPdfHeader, drawSummaryCards, drawSectionHeader, stampLuxuryFooter } from '../../lib/pdfTemplate'
 
 export function WorkRecordsPage() {
   const today = getTodayString()
@@ -40,39 +41,98 @@ export function WorkRecordsPage() {
     setDeletingId(null)
   }
 
-  const exportPDF = () => {
-    const doc = new jsPDF()
-    doc.setFontSize(16)
-    doc.text('Work Records Report', 14, 20)
-    doc.setFontSize(10)
-    doc.text(`Period: ${filters.startDate} to ${filters.endDate}`, 14, 28)
-    doc.text(`Total Revenue: ${formatCurrencyPDF(totalRevenue)} | Discount: ${formatCurrencyPDF(totalDiscount)} | Records: ${records.length}`, 14, 34)
+  const exportPDF = async () => {
+    const toastId = toast.loading('Generating luxury PDF report...')
+    try {
+      const logoBase64 = await loadLogoBase64()
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
 
-    autoTable(doc, {
-      startY: 40,
-      head: [['Date', 'Customer Name', 'Contact No', 'Staff Name', 'Service', 'Amount', 'Discount', 'After Discount', 'Total', 'Pay Mode']],
-      body: records.map(r => {
-        const discount = (r as WorkRecordWithRelations & { discount_amount?: number }).discount_amount ?? 0
-        const gross = r.amount + discount
-        const pm = (r as WorkRecordWithRelations & { payment_method?: string }).payment_method ?? 'cash'
-        return [
-          formatDate(r.date),
-          (r.customers as { name: string })?.name ?? '',
-          (r.customers as { phone: string })?.phone ?? '',
-          (r.staff as { name: string })?.name ?? '',
-          (r.services as { name: string })?.name ?? '',
-          gross.toFixed(2),
-          discount > 0 ? discount.toFixed(2) : '0',
-          r.amount.toFixed(2),
-          r.amount.toFixed(2),
-          pm.toUpperCase(),
-        ]
-      }),
-      styles: { fontSize: 7 },
-      headStyles: { fillColor: [103, 80, 164] },
-    })
-    doc.save(`work-records-${filters.startDate}.pdf`)
-    toast.success('PDF exported!')
+      // Custom Landscape Header for Work Register
+      doc.setFillColor(33, 0, 93)
+      doc.rect(0, 0, 297, 36, 'F')
+      doc.setFillColor(212, 175, 55)
+      doc.rect(0, 36, 297, 1.8, 'F')
+
+      if (logoBase64) {
+        try {
+          doc.setFillColor(255, 255, 255)
+          doc.roundedRect(14, 6, 24, 24, 3, 3, 'F')
+          doc.addImage(logoBase64, 'PNG', 16, 8, 20, 20)
+        } catch { /* ignore */ }
+      }
+
+      const leftX = logoBase64 ? 43 : 14
+      doc.setTextColor(255, 255, 255)
+      doc.setFontSize(18)
+      doc.setFont('helvetica', 'bold')
+      doc.text('NAILUXE STUDIO', leftX, 16)
+      doc.setFontSize(8)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(234, 221, 255)
+      doc.text('OFFICIAL WORK RECORDS & SERVICE REGISTER', leftX, 22)
+      doc.text('Panampilly Nagar, Kochi  |  +91 98407 00734', leftX, 28)
+
+      // Right
+      doc.setTextColor(212, 175, 55)
+      doc.setFontSize(11)
+      doc.setFont('helvetica', 'bold')
+      doc.text('AUDIT REPORT', 283, 16, { align: 'right' })
+      doc.setTextColor(234, 221, 255)
+      doc.setFontSize(8.5)
+      doc.setFont('helvetica', 'normal')
+      doc.text(`Period: ${formatDate(filters.startDate)} to ${formatDate(filters.endDate)}`, 283, 23, { align: 'right' })
+      doc.text(`Total Collections: ${formatCurrencyPDF(totalRevenue)}  |  ${records.length} Services`, 283, 29, { align: 'right' })
+
+      autoTable(doc, {
+        startY: 42,
+        head: [['DATE', 'CUSTOMER', 'PHONE', 'ARTIST', 'SERVICE', 'AMOUNT', 'DISCOUNT', 'NET TOTAL', 'PAY MODE']],
+        body: records.map(r => {
+          const discount = (r as WorkRecordWithRelations & { discount_amount?: number }).discount_amount ?? 0
+          const gross = r.amount + discount
+          const pm = (r as WorkRecordWithRelations & { payment_method?: string }).payment_method ?? 'cash'
+          return [
+            formatDate(r.date),
+            (r.customers as { name: string })?.name ?? '',
+            (r.customers as { phone: string })?.phone ?? '',
+            (r.staff as { name: string })?.name ?? '',
+            (r.services as { name: string })?.name ?? '',
+            formatCurrencyPDF(gross),
+            discount > 0 ? formatCurrencyPDF(discount) : '—',
+            formatCurrencyPDF(r.amount),
+            pm.toUpperCase(),
+          ]
+        }),
+        foot: [['TOTALS', '', '', '', `${records.length} Services`, formatCurrencyPDF(totalRevenue + totalDiscount), formatCurrencyPDF(totalDiscount), formatCurrencyPDF(totalRevenue), '']],
+        headStyles: { fillColor: [56, 30, 114], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
+        footStyles: { fillColor: [243, 237, 247], textColor: [56, 30, 114], fontStyle: 'bold', fontSize: 8 },
+        alternateRowStyles: { fillColor: [252, 250, 255] },
+        styles: { fontSize: 7.5, cellPadding: 2, lineColor: [232, 222, 248], lineWidth: 0.1 },
+        columnStyles: {
+          5: { halign: 'right' },
+          6: { halign: 'right' },
+          7: { halign: 'right', fontStyle: 'bold', textColor: [56, 30, 114] },
+          8: { halign: 'center' },
+        },
+        margin: { left: 14, right: 14 },
+      })
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const totalPages = (doc as any).internal.getNumberOfPages()
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i)
+        doc.setDrawColor(232, 222, 248)
+        doc.line(14, 200, 283, 200)
+        doc.setFontSize(7)
+        doc.setTextColor(121, 116, 126)
+        doc.text('NAILUXE STUDIO  •  OFFICIAL WORK REGISTER AUDIT', 14, 204)
+        doc.text(`Page ${i} of ${totalPages}`, 283, 204, { align: 'right' })
+      }
+
+      doc.save(`work-records-${filters.startDate}.pdf`)
+      toast.success('Luxury PDF exported!', { id: toastId })
+    } catch (e: unknown) {
+      toast.error(`Export failed: ${(e as Error).message}`, { id: toastId })
+    }
   }
 
   const exportExcel = () => {

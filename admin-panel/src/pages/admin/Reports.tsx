@@ -15,6 +15,7 @@ import toast from 'react-hot-toast'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
+import { loadLogoBase64, drawLuxuryPdfHeader, drawSummaryCards, drawSectionHeader, stampLuxuryFooter } from '../../lib/pdfTemplate'
 
 const COLORS = ['#6750A4', '#7F67BE', '#9A82DB', '#B69DF8', '#D0BCFF', '#EADDFF']
 
@@ -36,36 +37,98 @@ export function ReportsPage() {
   const { data: report, isLoading } = useMonthlyReport(year, month)
   const monthName = format(new Date(year, month - 1, 1), 'MMMM yyyy')
 
-  const exportPDF = () => {
+  const exportPDF = async () => {
     if (!report) return
-    const doc = new jsPDF()
-    doc.setFontSize(18)
-    doc.text(`Monthly Report — ${monthName}`, 14, 20)
-    doc.setFontSize(11)
-    doc.text(`Total Revenue: ${formatCurrencyPDF(report.totalRevenue)}`, 14, 30)
-    doc.text(`Total Customers: ${report.totalCustomers}`, 14, 37)
+    const toastId = toast.loading('Generating luxury monthly report...')
+    try {
+      const logoBase64 = await loadLogoBase64()
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
 
-    doc.setFontSize(14)
-    doc.text('Staff Summary', 14, 50)
-    autoTable(doc, {
-      startY: 55,
-      head: [['Staff', 'Customers', 'Revenue']],
-      body: report.staffSummary.map(s => [s.staffName, s.totalCustomers, formatCurrencyPDF(s.totalAmount)]),
-      headStyles: { fillColor: [103, 80, 164] },
-    })
+      // 1. Header Banner
+      drawLuxuryPdfHeader({
+        doc,
+        reportTitle: 'Executive Monthly Report',
+        periodLabel: monthName,
+        logoBase64,
+      })
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const finalY = (doc as any).lastAutoTable.finalY + 10
-    doc.setFontSize(14)
-    doc.text('Service Summary', 14, finalY)
-    autoTable(doc, {
-      startY: finalY + 5,
-      head: [['Service', 'Count', 'Revenue']],
-      body: report.serviceSummary.map(s => [s.serviceName, s.count, formatCurrencyPDF(s.revenue)]),
-      headStyles: { fillColor: [127, 103, 190] },
-    })
-    doc.save(`report-${year}-${String(month).padStart(2, '0')}.pdf`)
-    toast.success('PDF exported!')
+      // 2. Executive KPI Summary Cards
+      const nextY = drawSummaryCards(doc, 48, [
+        {
+          label: 'Total Revenue',
+          value: formatCurrencyPDF(report.totalRevenue),
+          sublabel: 'Gross Salon Earnings',
+          accentColor: [212, 175, 55],
+        },
+        {
+          label: 'Total Clients',
+          value: `${report.totalCustomers}`,
+          sublabel: 'Served This Month',
+          accentColor: [16, 185, 129],
+        },
+        {
+          label: 'Top Staff',
+          value: report.staffSummary[0]?.staffName || '—',
+          sublabel: report.staffSummary[0] ? formatCurrencyPDF(report.staffSummary[0].totalAmount) : '',
+          accentColor: [103, 80, 164],
+        },
+        {
+          label: 'Top Service',
+          value: report.serviceSummary[0]?.serviceName.slice(0, 18) || '—',
+          sublabel: report.serviceSummary[0] ? `${report.serviceSummary[0].count} completed` : '',
+          accentColor: [245, 158, 11],
+        },
+      ])
+
+      // 3. Staff Summary Table
+      const staffHeaderY = drawSectionHeader(doc, 'STAFF PERFORMANCE BREAKDOWN', nextY + 3, [56, 30, 114])
+      autoTable(doc, {
+        startY: staffHeaderY,
+        head: [['STAFF MEMBER', 'CLIENTS SERVED', 'CONTRIBUTION %', 'REVENUE GENERATED']],
+        body: report.staffSummary.map(s => {
+          const pct = report.totalRevenue > 0 ? ((s.totalAmount / report.totalRevenue) * 100).toFixed(1) + '%' : '0%'
+          return [s.staffName, s.totalCustomers, pct, formatCurrencyPDF(s.totalAmount)]
+        }),
+        foot: [['TOTAL', `${report.totalCustomers}`, '100%', formatCurrencyPDF(report.totalRevenue)]],
+        headStyles: { fillColor: [56, 30, 114], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
+        footStyles: { fillColor: [243, 237, 247], textColor: [56, 30, 114], fontStyle: 'bold', fontSize: 8 },
+        alternateRowStyles: { fillColor: [252, 250, 255] },
+        styles: { fontSize: 8, cellPadding: 2.2, lineColor: [232, 222, 248], lineWidth: 0.1 },
+        columnStyles: {
+          0: { fontStyle: 'bold' },
+          1: { halign: 'center' },
+          2: { halign: 'center' },
+          3: { halign: 'right', fontStyle: 'bold', textColor: [56, 30, 114] },
+        },
+        margin: { left: 14, right: 14 },
+      })
+
+      // 4. Service Summary Table
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const finalY = (doc as any).lastAutoTable.finalY + 8
+      const svcHeaderY = drawSectionHeader(doc, 'TOP SERVICES & CATEGORY PERFORMANCE', finalY, [103, 80, 164])
+      autoTable(doc, {
+        startY: svcHeaderY,
+        head: [['SERVICE', 'TIMES BOOKED', 'REVENUE GENERATED']],
+        body: report.serviceSummary.map(s => [s.serviceName, s.count, formatCurrencyPDF(s.revenue)]),
+        headStyles: { fillColor: [103, 80, 164], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
+        alternateRowStyles: { fillColor: [252, 250, 255] },
+        styles: { fontSize: 8, cellPadding: 2, lineColor: [232, 222, 248], lineWidth: 0.1 },
+        columnStyles: {
+          1: { halign: 'center' },
+          2: { halign: 'right', fontStyle: 'bold', textColor: [56, 30, 114] },
+        },
+        margin: { left: 14, right: 14 },
+      })
+
+      // 5. Stamp Luxury Footer
+      stampLuxuryFooter(doc, 'EXECUTIVE MONTHLY FINANCIAL AUDIT')
+
+      doc.save(`report-${year}-${String(month).padStart(2, '0')}.pdf`)
+      toast.success('Luxury PDF exported!', { id: toastId })
+    } catch (e: unknown) {
+      toast.error(`Export failed: ${(e as Error).message}`, { id: toastId })
+    }
   }
 
   const exportExcel = () => {
