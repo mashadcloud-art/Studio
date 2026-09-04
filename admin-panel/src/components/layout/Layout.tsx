@@ -42,9 +42,9 @@ export function Layout() {
 
       {/* Mobile: slide-in full drawer */}
       {sidebarOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 flex">
+        <div className="lg:hidden fixed inset-0 z-50 flex h-[100dvh] overflow-hidden">
           <div className="fixed inset-0 bg-black/40 backdrop-blur-xs" onClick={() => setSidebarOpen(false)} />
-          <div className="relative z-10">
+          <div className="relative z-10 h-full">
             <Sidebar
               mobile onClose={() => setSidebarOpen(false)}
               onToggleChat={() => { setSidebarOpen(false); setChatOpen(true); }} hasUnread={hasUnread} unreadChatCount={unreadChatCount}

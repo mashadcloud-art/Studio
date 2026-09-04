@@ -466,14 +466,28 @@ export function Sidebar({
   const { theme, toggleTheme } = useTheme()
   const isDark = theme === 'dark'
 
+  // Mobile drawer: Keep all category groups collapsed by default so menu is clean and compact
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    accounts: true,
-    attendance: true,
-    management: true,
+    accounts: false,
+    attendance: false,
+    management: false,
   })
 
+  // Accordion behavior: expanding one collapses the others, keeping navigation compact
   const toggleGroup = (id: string) => {
-    setOpenGroups(prev => ({ ...prev, [id]: !prev[id] }))
+    setOpenGroups(prev => {
+      const isAlreadyOpen = !!prev[id]
+      if (isAlreadyOpen) {
+        // Collapse if clicking the already open category
+        return { accounts: false, attendance: false, management: false }
+      }
+      // Expand only the selected category and collapse the rest
+      return {
+        accounts: id === 'accounts',
+        attendance: id === 'attendance',
+        management: id === 'management',
+      }
+    })
   }
 
   const handleSignOut = async () => {
@@ -617,7 +631,7 @@ export function Sidebar({
       </nav>
 
       {/* Bottom Controls */}
-      <div className="px-3 py-2.5 border-t border-white/60 dark:border-[#2B2930] flex flex-col gap-1">
+      <div className="px-3 pt-2 pb-6 border-t border-[#E8DEF8] dark:border-[#2B2930] bg-[#ECE6F0]/70 dark:bg-[#15121E]/90 flex flex-col gap-1 shrink-0">
         {canReviewOvertime && onOpenApprovals && (
           <button onClick={onOpenApprovals} className={cn(rowClass(), 'relative py-2')}>
             <Bell size={18} className="shrink-0 text-[#6750A4] dark:text-[#D0BCFF]" />
@@ -651,10 +665,10 @@ export function Sidebar({
         </button>
         <button
           onClick={handleSignOut}
-          className="flex items-center gap-3 w-full p-2.5 rounded-2xl text-[#B3261E] dark:text-[#F2B8B5] hover:bg-[#FFD8E4]/50 dark:hover:bg-[#58102B]/40 transition shrink-0"
+          className="flex items-center gap-3 w-full p-2.5 rounded-2xl text-[#B3261E] dark:text-[#F2B8B5] hover:bg-[#FFD8E4]/60 dark:hover:bg-[#58102B]/50 transition shrink-0 font-medium"
         >
-          <LogOut size={18} className="shrink-0" />
-          <span className="text-xs font-semibold">Sign Out</span>
+          <LogOut size={18} className="shrink-0 text-[#B3261E] dark:text-[#F2B8B5]" />
+          <span className="text-xs font-bold">Sign Out</span>
         </button>
       </div>
     </aside>
