@@ -77,11 +77,17 @@ export function StaffFormModal({ open, onClose, editingStaff }: StaffFormModalPr
     } else {
       const nextCode = `NLX-${String(staffList.length + 1).padStart(2, '0')}`
       reset({
+        name: '',
+        phone: '',
+        address: '',
         role: 'staff',
         staff_code: nextCode,
         joining_date: new Date().toISOString().split('T')[0],
+        salary: 0,
         speciality: 'General',
         overtime_rate: 0,
+        email: '',
+        password: 'password123',
       })
     }
   }, [open, editingStaff, reset, staffList])
@@ -174,6 +180,11 @@ export function StaffFormModal({ open, onClose, editingStaff }: StaffFormModalPr
         }
 
         if (authData?.user?.id) {
+          // If Supabase detects existing email, it returns identities: [] without throwing error
+          if (authData.user.identities && authData.user.identities.length === 0) {
+            throw new Error(`The email "${data.email}" is already registered to another user! Please enter a unique email (such as ${formattedName.toLowerCase().replace(/\s+/g, '')}@nailuxe.com).`)
+          }
+
           createdUserId = authData.user.id
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -203,6 +214,9 @@ export function StaffFormModal({ open, onClose, editingStaff }: StaffFormModalPr
           }
 
           if (staffRes.error) {
+            if (staffRes.error.message?.includes('foreign key constraint') || staffRes.error.message?.includes('staff_id_fkey')) {
+              throw new Error(`The email "${data.email}" is already used by another account. Please change the Login Username / Email to a unique address for ${formattedName} (e.g. ${formattedName.toLowerCase().replace(/\s+/g, '')}@nailuxe.com).`)
+            }
             throw new Error(`Staff record error: ${staffRes.error.message}`)
           }
         } else {
