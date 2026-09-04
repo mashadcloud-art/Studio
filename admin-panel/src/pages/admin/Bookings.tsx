@@ -49,6 +49,7 @@ const schema = z.object({
   advance_paid: z.coerce.number().min(0),
   assigned_staff_id: z.string().optional(),
   payment_method: z.enum(['cash', 'card', 'gpay', 'upi', 'other']),
+  status: z.enum(['pending', 'confirmed', 'completed', 'cancelled']),
   notes: z.string().optional(),
 })
 type FormData = z.infer<typeof schema>
@@ -140,6 +141,18 @@ export function BookingsPage() {
   const createBooking = useMutation({
     mutationFn: async (data: FormData) => {
       const totalServices = data.services.reduce((s, svc) => s + (parseFloat(String(svc.price)) || 0), 0)
+      
+      // Auto-upsert customer into directory
+      if (data.customer_phone) {
+        try {
+          await db.from('customers').upsert({
+            name: toTitleCase(data.customer_name),
+            phone: data.customer_phone,
+            address: data.customer_place ? toTitleCase(data.customer_place) : null,
+          }, { onConflict: 'phone' })
+        } catch { /* ignore customer upsert error */ }
+      }
+
       const { data: result, error } = await db.from('bookings').insert({
         customer_name: toTitleCase(data.customer_name),
         customer_phone: data.customer_phone,
@@ -152,14 +165,13 @@ export function BookingsPage() {
         assigned_staff_id: data.assigned_staff_id || null,
         payment_method: data.payment_method,
         notes: data.notes || null,
-        status: 'pending',
+        status: data.status || 'pending',
       }).select().single()
       if (error) throw error
       return result
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['bookings'] })
-      qc.invalidateQueries({ queryKey: ['bookings_month_indicators'] })
+      invalidateFinancialQueries(qc)
       toast.success('Booking created!')
       setShowModal(false)
       reset()
@@ -181,16 +193,13 @@ export function BookingsPage() {
         pending_amount: Math.max(0, totalServices - data.advance_paid),
         assigned_staff_id: data.assigned_staff_id || null,
         payment_method: data.payment_method,
+        status: data.status,
         notes: data.notes || null,
       }).eq('id', data.id)
       if (error) throw error
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['bookings'] })
-      qc.invalidateQueries({ queryKey: ['sales_bookings'] })
-      qc.invalidateQueries({ queryKey: ['my_assigned_bookings'] })
-      qc.invalidateQueries({ queryKey: ['unassigned_bookings'] })
-      qc.invalidateQueries({ queryKey: ['bookings_month_indicators'] })
+      invalidateFinancialQueries(qc)
       toast.success('Booking updated!')
       setShowModal(false)
       setEditingBookingId(null)
@@ -248,6 +257,7 @@ export function BookingsPage() {
       services: [],
       advance_paid: 0,
       payment_method: 'cash',
+      status: 'pending',
     },
   })
 
@@ -256,6 +266,7 @@ export function BookingsPage() {
   const watchAdvance = watch('advance_paid')
   const watchTime = watch('booking_time')
   const watchPaymentMethod = watch('payment_method')
+  const watchStatus = watch('status')
   const totalAmount = watchServices.reduce((s, svc) => s + (parseFloat(String(svc.price)) || 0), 0)
   const pendingAmount = Math.max(0, totalAmount - (parseFloat(String(watchAdvance)) || 0))
 
@@ -278,6 +289,7 @@ export function BookingsPage() {
       advance_paid: b.advance_paid || 0,
       assigned_staff_id: b.assigned_staff_id || '',
       payment_method: (b as any).payment_method || 'cash',
+      status: (b.status as any) || 'pending',
       notes: b.notes || '',
     })
     setShowModal(true)
@@ -305,12 +317,15 @@ export function BookingsPage() {
         <button
           onClick={() => {
             setEditingBookingId(null)
+            const targetDate = filterDate || format(new Date(), 'yyyy-MM-dd')
+            const isPast = targetDate < format(new Date(), 'yyyy-MM-dd')
             reset({
-              booking_date: format(new Date(), 'yyyy-MM-dd'),
+              booking_date: targetDate,
               booking_time: '10:00',
               services: [],
               advance_paid: 0,
               payment_method: 'cash',
+              status: isPast ? 'completed' : 'pending',
               customer_name: '',
               customer_phone: '',
               customer_place: '',
@@ -752,11 +767,69 @@ export function BookingsPage() {
 
           <div className="h-px bg-[#E8DEF8] dark:bg-[#382E48]" />
 
+          {/* Booking Status (Crucial for backdated past sales) */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold text-[#79747E] dark:text-[#938F99] uppercase tracking-widest">
+                Booking Status
+              </p>
+              {watchStatus === 'completed' && (
+                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                  ✨ Reflects immediately in Sales & Accounts
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: 'pending', label: 'Pending', desc: 'Upcoming' },
+                { id: 'confirmed', label: 'Confirmed', desc: 'Slot Fixed' },
+                { id: 'completed', label: 'Completed', desc: 'Done & Paid' },
+              ].map(st => {
+                const isSelected = watchStatus === st.id
+                return (
+                  <button
+                    key={st.id}
+                    type="button"
+                    onClick={() => {
+                      setValue('status', st.id as any, { shouldValidate: true })
+                      if (st.id === 'completed' && totalAmount > 0 && watchAdvance === 0) {
+                        setValue('advance_paid', totalAmount)
+                      }
+                    }}
+                    className={`px-3 py-2 rounded-xl text-left border transition-all ${
+                      isSelected
+                        ? st.id === 'completed'
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow'
+                          : 'bg-[#6750A4] text-white border-[#6750A4] shadow'
+                        : 'bg-transparent border-[#CAC4D0] dark:border-[#44474F] text-[#1D1A22] dark:text-[#E6E0E9] hover:bg-[#F3EDF7] dark:hover:bg-[#2B2930]'
+                    }`}
+                  >
+                    <p className="text-xs font-bold leading-tight">{st.label}</p>
+                    <p className={`text-[10px] mt-0.5 ${isSelected ? 'text-white/80' : 'text-[#79747E] dark:text-[#938F99]'}`}>{st.desc}</p>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="h-px bg-[#E8DEF8] dark:bg-[#382E48]" />
+
           {/* Payment */}
           <div className="space-y-3">
-            <p className="text-xs font-bold text-[#79747E] dark:text-[#938F99] uppercase tracking-widest">Payment</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold text-[#79747E] dark:text-[#938F99] uppercase tracking-widest">Payment</p>
+              {totalAmount > 0 && (watchAdvance < totalAmount || watchAdvance === 0) && (
+                <button
+                  type="button"
+                  onClick={() => setValue('advance_paid', totalAmount)}
+                  className="text-xs font-bold text-[#6750A4] dark:text-[#D0BCFF] hover:underline flex items-center gap-1"
+                >
+                  <span>💰 Paid in Full (₹{totalAmount})</span>
+                </button>
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-4">
-              <Input label="Advance Paid (₹)" type="number" step="0.01" {...register('advance_paid')} />
+              <Input label="Paid Amount (₹)" type="number" step="0.01" {...register('advance_paid')} />
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-bold text-[#79747E] dark:text-[#938F99] uppercase tracking-widest">Pending</label>
                 <div className="rounded-xl border border-[#CAC4D0] dark:border-[#44474F] bg-[#F3EDF7] dark:bg-[#2B2930] px-3.5 py-2.5 text-sm font-bold text-[#1D1A22] dark:text-[#E6E0E9]">
