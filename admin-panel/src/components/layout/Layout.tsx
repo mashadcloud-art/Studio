@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Outlet, useLocation, NavLink, useNavigate } from 'react-router-dom'
 import { Menu, X } from 'lucide-react'
 import { IconSidebar, Sidebar, bottomNavItems } from './Sidebar'
@@ -19,6 +19,8 @@ export function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
   const [approvalsOpen, setApprovalsOpen] = useState(false)
+  const [navVisible, setNavVisible] = useState(true)
+  const lastScrollTopRef = useRef(0)
   const location = useLocation()
   const navigate = useNavigate()
   const { staff, isAdmin, isImpersonating, exitStaffView } = useAuth()
@@ -31,6 +33,36 @@ export function Layout() {
   const roleKey = effectiveAdmin ? 'admin' : staff?.role === 'receptionist' ? 'receptionist' : 'staff'
   const mobileNavItems = bottomNavItems[roleKey] ?? []
   const hideTopbar = NO_TOPBAR_ROUTES.includes(location.pathname)
+
+  // Reset visibility when route changes
+  useEffect(() => {
+    setNavVisible(true)
+    lastScrollTopRef.current = 0
+  }, [location.pathname])
+
+  // Intelligent auto-hide on scroll: hide when scrolling down to give full-screen space, show when scrolling up
+  const handleScroll = (e: React.UIEvent<HTMLElement>) => {
+    const currentScrollTop = e.currentTarget.scrollTop
+    const delta = currentScrollTop - lastScrollTopRef.current
+
+    // Always keep visible if near top of the page
+    if (currentScrollTop < 45) {
+      if (!navVisible) setNavVisible(true)
+      lastScrollTopRef.current = currentScrollTop
+      return
+    }
+
+    // Scroll Down -> Hide bottom nav smoothly
+    if (delta > 8 && navVisible) {
+      setNavVisible(false)
+    }
+    // Scroll Up -> Show bottom nav immediately
+    else if (delta < -8 && !navVisible) {
+      setNavVisible(true)
+    }
+
+    lastScrollTopRef.current = currentScrollTop
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#FEF7FF] dark:bg-[#141218] transition-colors duration-300">
@@ -105,31 +137,47 @@ export function Layout() {
           </div>
         )}
 
-        {/* Page */}
-        <main className={cn('flex-1 overflow-y-auto', mobileNavItems.length > 0 && 'pb-24 lg:pb-0')}>
-          <div className={hideTopbar ? 'w-full lg:p-6' : 'p-6 w-full'}>
+        {/* Page Container */}
+        <main
+          onScroll={handleScroll}
+          className={cn('flex-1 overflow-y-auto overscroll-contain', mobileNavItems.length > 0 && 'pb-20 lg:pb-0')}
+        >
+          <div className={hideTopbar ? 'w-full lg:p-6' : 'p-4 sm:p-6 w-full'}>
             <Outlet />
           </div>
         </main>
 
-        {/* Mobile floating bottom nav */}
+        {/* Edge-to-Edge Intelligent Auto-Hiding Mobile Bottom Nav Bar */}
         {mobileNavItems.length > 0 && (
-          <nav className="lg:hidden absolute bottom-3 inset-x-4 bg-[#F3EDF7] dark:bg-[#2B2930] border border-[#E6E0E9] dark:border-[#44474F] px-3 py-2.5 flex items-center justify-around z-40 rounded-full shadow-lg">
+          <nav
+            aria-label="Mobile Navigation"
+            className={cn(
+              'lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[#F3EDF7]/95 dark:bg-[#1C1A24]/95 backdrop-blur-xl border-t border-[#E8DEF8] dark:border-[#332F42] px-2 pt-1.5 pb-[calc(env(safe-area-inset-bottom,0px)+8px)] flex items-center justify-around shadow-[0_-4px_20px_rgba(0,0,0,0.06)] transition-transform duration-300 ease-out will-change-transform',
+              navVisible ? 'translate-y-0' : 'translate-y-full pointer-events-none'
+            )}
+          >
             {mobileNavItems.map(({ to, icon: Icon, label }) => (
               <NavLink
                 key={to}
                 to={to}
                 className={({ isActive }) => cn(
-                  'flex flex-col items-center gap-0.5 px-3 py-1 rounded-full transition',
-                  isActive ? 'text-[#21005D] dark:text-[#D0BCFF]' : 'text-[#49454F] dark:text-[#CAC4D0]'
+                  'flex flex-col items-center gap-0.5 px-3 py-1 rounded-2xl transition-all duration-200 min-w-[58px]',
+                  isActive
+                    ? 'text-[#21005D] dark:text-[#D0BCFF] font-black'
+                    : 'text-[#49454F] dark:text-[#CAC4D0] opacity-80 hover:opacity-100'
                 )}
               >
                 {({ isActive }) => (
                   <>
-                    <div className={cn('px-4 py-1 rounded-full flex items-center justify-center', isActive && 'bg-[#EADDFF] dark:bg-[#4F378B]')}>
-                      <Icon size={18} />
+                    <div className={cn(
+                      'px-4 py-1 rounded-full flex items-center justify-center transition-all duration-200',
+                      isActive
+                        ? 'bg-[#EADDFF] dark:bg-[#4F378B] scale-105 shadow-xs'
+                        : 'hover:bg-[#EADDFF]/40 dark:hover:bg-[#382E48]'
+                    )}>
+                      <Icon size={19} />
                     </div>
-                    <span className="text-[10px] font-bold">{label}</span>
+                    <span className="text-[10px] tracking-tight">{label}</span>
                   </>
                 )}
               </NavLink>
