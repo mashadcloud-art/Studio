@@ -40,32 +40,53 @@ export function Layout() {
     lastScrollTopRef.current = 0
   }, [location.pathname])
 
-  // Intelligent auto-hide on scroll: hide when scrolling down to give full-screen space, show when scrolling up
+  // Intelligent auto-hide on scroll: hide when scrolling down, show when scrolling up
   const handleScroll = (e: React.UIEvent<HTMLElement>) => {
     const currentScrollTop = e.currentTarget.scrollTop
     const delta = currentScrollTop - lastScrollTopRef.current
 
-    // Always keep visible if near top of the page
     if (currentScrollTop < 45) {
       if (!navVisible) setNavVisible(true)
       lastScrollTopRef.current = currentScrollTop
       return
     }
 
-    // Scroll Down -> Hide bottom nav smoothly
     if (delta > 8 && navVisible) {
       setNavVisible(false)
-    }
-    // Scroll Up -> Show bottom nav immediately
-    else if (delta < -8 && !navVisible) {
+    } else if (delta < -8 && !navVisible) {
       setNavVisible(true)
     }
 
     lastScrollTopRef.current = currentScrollTop
   }
 
+  // Also listen to native window scroll on mobile devices so browser URL address bar collapses automatically like Hostinger
+  useEffect(() => {
+    const onWindowScroll = () => {
+      const currentScrollTop = window.scrollY || document.documentElement.scrollTop
+      const delta = currentScrollTop - lastScrollTopRef.current
+
+      if (currentScrollTop < 45) {
+        if (!navVisible) setNavVisible(true)
+        lastScrollTopRef.current = currentScrollTop
+        return
+      }
+
+      if (delta > 8 && navVisible) {
+        setNavVisible(false)
+      } else if (delta < -8 && !navVisible) {
+        setNavVisible(true)
+      }
+
+      lastScrollTopRef.current = currentScrollTop
+    }
+
+    window.addEventListener('scroll', onWindowScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onWindowScroll)
+  }, [navVisible])
+
   return (
-    <div className="flex h-screen overflow-hidden bg-[#FEF7FF] dark:bg-[#141218] transition-colors duration-300">
+    <div className="flex min-h-screen lg:h-screen lg:overflow-hidden bg-[#FEF7FF] dark:bg-[#141218] transition-colors duration-300">
       {/* Desktop: slim icon-only rail */}
       <IconSidebar
         onToggleChat={() => setChatOpen(!chatOpen)} hasUnread={hasUnread} unreadChatCount={unreadChatCount}
@@ -91,7 +112,7 @@ export function Layout() {
       )}
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden min-w-0 relative">
+      <div className="flex-1 flex flex-col min-w-0 relative lg:overflow-hidden">
         {/* Impersonation Top Banner */}
         {isImpersonating && staff && (
           <div className="bg-gradient-to-r from-[#4F378B] via-[#6750A4] to-[#7F67BE] text-white px-4 py-2.5 shadow-md flex items-center justify-between z-40 text-xs sm:text-sm font-medium border-b border-white/10 shrink-0">
@@ -114,7 +135,7 @@ export function Layout() {
             </button>
           </div>
         )}
-        {/* Mobile topbar: normal in-flow bar, or a transparent overlay for routes with their own hero header */}
+        {/* Mobile topbar: sticky at top with pure white/dark background matching status bar */}
         {hideTopbar ? (
           <div className="lg:hidden absolute top-0 inset-x-0 z-30 flex items-center justify-between gap-3 px-4 pt-4">
             <button onClick={() => setSidebarOpen(true)} aria-label="Open menu"
@@ -126,7 +147,7 @@ export function Layout() {
             </div>
           </div>
         ) : (
-          <div className="lg:hidden flex items-center justify-between gap-3 px-4 pt-[calc(env(safe-area-inset-top,0px)+8px)] pb-2.5 bg-white dark:bg-[#1D192B] border-b border-[#E8DEF8]/70 dark:border-[#2B2930] shrink-0 transition-colors">
+          <div className="lg:hidden sticky top-0 z-30 flex items-center justify-between gap-3 px-4 pt-[calc(env(safe-area-inset-top,0px)+8px)] pb-2.5 bg-white dark:bg-[#1D192B] border-b border-[#E8DEF8]/70 dark:border-[#2B2930] shrink-0 transition-colors shadow-2xs">
             <div className="flex items-center gap-2.5">
               <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-xl text-[#49454F] dark:text-[#CAC4D0] hover:bg-[#F3EDF7] dark:hover:bg-[#2B2930] transition active:scale-95">
                 <Menu size={19} />
@@ -140,10 +161,10 @@ export function Layout() {
           </div>
         )}
 
-        {/* Page Container */}
+        {/* Page Container: allows natural window scrolling on mobile for browser URL collapse */}
         <main
           onScroll={handleScroll}
-          className={cn('flex-1 overflow-y-auto overscroll-contain', mobileNavItems.length > 0 && 'pb-20 lg:pb-0')}
+          className={cn('flex-1 lg:overflow-y-auto overscroll-contain', mobileNavItems.length > 0 && 'pb-24 lg:pb-0')}
         >
           <div className={hideTopbar ? 'w-full lg:p-6' : 'p-4 sm:p-6 w-full'}>
             <Outlet />
