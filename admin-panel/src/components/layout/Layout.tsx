@@ -126,12 +126,15 @@ export function Layout() {
             </div>
           </div>
         ) : (
-          <div className="lg:hidden flex items-center justify-between gap-3 px-4 py-3 bg-white dark:bg-[#1D192B] border-b border-[#E8DEF8] dark:border-[#2B2930] shrink-0">
-            <div className="flex items-center gap-3">
-              <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-lg text-[#49454F] dark:text-[#CAC4D0] hover:bg-[#F3EDF7] dark:hover:bg-[#2B2930]">
-                <Menu size={18} />
+          <div className="lg:hidden flex items-center justify-between gap-3 px-4 pt-[calc(env(safe-area-inset-top,0px)+8px)] pb-2.5 bg-white dark:bg-[#1D192B] border-b border-[#E8DEF8]/70 dark:border-[#2B2930] shrink-0 transition-colors">
+            <div className="flex items-center gap-2.5">
+              <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-xl text-[#49454F] dark:text-[#CAC4D0] hover:bg-[#F3EDF7] dark:hover:bg-[#2B2930] transition active:scale-95">
+                <Menu size={19} />
               </button>
-              <span className="font-bold text-[#1D1A22] dark:text-[#E6E0E9] text-sm">Nailuxe</span>
+              <div className="flex items-center gap-2">
+                <img src="/logo.png" alt="Nailuxe" className="w-6 h-6 object-contain rounded-md shadow-2xs" />
+                <span className="font-extrabold text-[#1D1A22] dark:text-[#E6E0E9] text-sm tracking-tight">Nailuxe</span>
+              </div>
             </div>
             <ThemeToggle />
           </div>
