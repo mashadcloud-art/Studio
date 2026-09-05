@@ -136,7 +136,7 @@ export function Layout() {
             />
           </div>
           <button onClick={() => setSidebarOpen(false)}
-            className="absolute top-4 right-4 z-20 p-2 bg-white dark:bg-[#2B2930] text-[#1D1A22] dark:text-[#E6E0E9] rounded-lg">
+            className="absolute top-[max(env(safe-area-inset-top,0px)+12px,44px)] right-4 z-20 p-2.5 bg-white/90 dark:bg-[#2B2930]/90 backdrop-blur-md text-[#1D1A22] dark:text-[#E6E0E9] rounded-xl shadow-md cursor-pointer active:scale-95">
             <X size={18} />
           </button>
         </div>

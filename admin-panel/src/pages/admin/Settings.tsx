@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
-import { Save, Download, Sparkles, RefreshCw, Bell, CheckCircle2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Save, Download, Sparkles, RefreshCw, Bell, CheckCircle2, LogOut } from 'lucide-react'
 import { Card, CardHeader } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
 import { supabase } from '../../lib/supabase'
 import { CURRENT_APP_VERSION } from '../../config/appVersion'
 import { useAppUpdate } from '../../hooks/useAppUpdate'
+import { useAuth } from '../../contexts/AuthContext'
 import { Capacitor } from '@capacitor/core'
 import { dispatchPushNotification } from '../../lib/pushNotifications'
 import toast from 'react-hot-toast'
@@ -14,6 +16,8 @@ import toast from 'react-hot-toast'
 const db = supabase as any
 
 export function SettingsPage() {
+  const { signOut, staff } = useAuth()
+  const navigate = useNavigate()
   const [studioName, setStudioName] = useState('Nailuxe Studio')
   const [studioPhone, setStudioPhone] = useState('')
   const [studioAddress, setStudioAddress] = useState('')
@@ -304,6 +308,30 @@ export function SettingsPage() {
       <Button icon={<Save size={16} />} onClick={handleSave} loading={saving}>
         Save Settings
       </Button>
+
+      {/* Account & Session Sign Out Card */}
+      <Card className="border-red-200 dark:border-red-900/40 bg-red-500/5 dark:bg-red-500/10">
+        <CardHeader title="Account & Session" subtitle={`Logged in as ${staff?.name || 'Administrator'} (${staff?.role || 'admin'})`} />
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-1">
+          <p className="text-xs text-[#79747E] dark:text-[#938F99]">
+            Sign out of your Nailuxe Studio session on this device.
+          </p>
+          <button
+            type="button"
+            onClick={async () => {
+              if (window.confirm('Are you sure you want to sign out?')) {
+                await signOut()
+                toast.success('Signed out successfully')
+                navigate('/login')
+              }
+            }}
+            className="py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center gap-2 shadow-sm active:scale-95 transition cursor-pointer shrink-0"
+          >
+            <LogOut size={15} />
+            <span>Sign Out of Account</span>
+          </button>
+        </div>
+      </Card>
     </div>
   )
 }

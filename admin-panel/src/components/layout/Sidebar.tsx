@@ -525,16 +525,26 @@ export function Sidebar({
         </div>
       </div>
 
-      {/* User chip */}
+      {/* User chip with prominent top Logout button */}
       <div className="px-3 py-2.5 border-b border-white/60 dark:border-[#2B2930]">
-        <div className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl bg-[#EADDFF] dark:bg-[#4F378B]">
-          <div className="w-7 h-7 rounded-lg bg-[#6750A4] dark:bg-[#D0BCFF] flex items-center justify-center text-white dark:text-[#381E72] text-xs font-bold shrink-0">
-            {staff?.name?.charAt(0).toUpperCase()}
+        <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl bg-[#EADDFF] dark:bg-[#4F378B]">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-7 h-7 rounded-lg bg-[#6750A4] dark:bg-[#D0BCFF] flex items-center justify-center text-white dark:text-[#381E72] text-xs font-bold shrink-0">
+              {staff?.name?.charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-bold text-[#21005D] dark:text-[#EADDFF] truncate">{staff?.name}</div>
+              <div className="text-[10px] text-[#4F378B] dark:text-[#CAC4D0] capitalize">{staff?.role}</div>
+            </div>
           </div>
-          <div className="min-w-0">
-            <div className="text-xs font-bold text-[#21005D] dark:text-[#EADDFF] truncate">{staff?.name}</div>
-            <div className="text-[10px] text-[#4F378B] dark:text-[#CAC4D0] capitalize">{staff?.role}</div>
-          </div>
+          <button
+            onClick={handleSignOut}
+            title="Log Out"
+            className="px-2.5 py-1 rounded-lg bg-red-500/15 hover:bg-red-500/25 text-red-700 dark:text-red-200 transition shrink-0 cursor-pointer flex items-center gap-1.5 text-[11px] font-bold shadow-2xs active:scale-95"
+          >
+            <LogOut size={13} />
+            <span>Logout</span>
+          </button>
         </div>
       </div>
 
@@ -630,8 +640,8 @@ export function Sidebar({
         })}
       </nav>
 
-      {/* Bottom Controls */}
-      <div className="px-3 pt-2 pb-6 border-t border-[#E8DEF8] dark:border-[#2B2930] bg-[#ECE6F0]/70 dark:bg-[#15121E]/90 flex flex-col gap-1 shrink-0">
+      {/* Bottom Controls — elevated with safe-area padding so it never hides behind Android 3-button navigation bar */}
+      <div className="px-3 pt-2 pb-[max(env(safe-area-inset-bottom,0px)+36px,84px)] border-t border-[#E8DEF8] dark:border-[#2B2930] bg-[#ECE6F0]/95 dark:bg-[#15121E]/95 backdrop-blur-md flex flex-col gap-1 shrink-0">
         {canReviewOvertime && onOpenApprovals && (
           <button onClick={onOpenApprovals} className={cn(rowClass(), 'relative py-2')}>
             <Bell size={18} className="shrink-0 text-[#6750A4] dark:text-[#D0BCFF]" />
@@ -665,10 +675,10 @@ export function Sidebar({
         </button>
         <button
           onClick={handleSignOut}
-          className="flex items-center gap-3 w-full p-2.5 rounded-2xl text-[#B3261E] dark:text-[#F2B8B5] hover:bg-[#FFD8E4]/60 dark:hover:bg-[#58102B]/50 transition shrink-0 font-medium"
+          className="flex items-center justify-center gap-2 w-full py-2.5 px-3 rounded-xl bg-red-500/10 dark:bg-red-500/20 text-[#B3261E] dark:text-[#F2B8B5] hover:bg-red-500/20 border border-red-300/60 dark:border-red-800/40 transition shrink-0 font-bold active:scale-95 cursor-pointer mt-1 shadow-2xs"
         >
-          <LogOut size={18} className="shrink-0 text-[#B3261E] dark:text-[#F2B8B5]" />
-          <span className="text-xs font-bold">Sign Out</span>
+          <LogOut size={16} className="shrink-0 text-[#B3261E] dark:text-[#F2B8B5]" />
+          <span className="text-xs font-bold tracking-wide">Sign Out</span>
         </button>
       </div>
     </aside>
