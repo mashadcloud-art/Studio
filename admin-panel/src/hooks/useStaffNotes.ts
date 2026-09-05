@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { dispatchPushNotification } from '../lib/pushNotifications'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any
@@ -29,7 +30,7 @@ export function useStaffNotes(staffId: string | undefined) {
       return data as StaffNote[]
     },
     enabled: !!staffId,
-    refetchInterval: 4000,       // light polling so it feels like a live chat
+    refetchInterval: 2000,
     refetchIntervalInBackground: false,
   })
 }
@@ -58,6 +59,20 @@ export function useSendStaffNote(staffId: string | undefined) {
         .select()
         .single()
       if (error) throw error
+
+      // Trigger Firebase push notification in background
+      const isFromAdmin = params.senderRole === 'admin'
+      dispatchPushNotification({
+        targetStaffId: isFromAdmin ? staffId : undefined,
+        targetRole: isFromAdmin ? undefined : 'admin',
+        title: isFromAdmin ? '💬 Studio Owner' : '💬 Staff Message',
+        body: params.message || (params.voiceUrl ? '🎤 Voice note' : 'New message'),
+        data: {
+          action: 'chat',
+          staffId,
+        },
+      })
+
       return data as StaffNote
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['staff_notes', staffId] }),

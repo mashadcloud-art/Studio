@@ -12,6 +12,7 @@ import { useAvailableBookings } from '../../hooks/useAvailableBookings'
 import { OvertimeApprovalsDrawer } from '../notifications/OvertimeApprovalsDrawer'
 import { useNotifications, unreadCount } from '../../hooks/useNotifications'
 import { initNativeNotifications, registerNotificationTapHandler } from '../../lib/nativeNotifications'
+import { initPushNotifications, registerPushTapHandler } from '../../lib/pushNotifications'
 import { UpdateModal } from '../common/UpdateModal'
 
 // Routes that render their own full-bleed hero/header and don't want the generic mobile topbar.
@@ -48,7 +49,20 @@ export function Layout() {
         navigate(route)
       }
     })
-  }, [navigate])
+
+    if (staff?.id) {
+      initPushNotifications(staff.id)
+      registerPushTapHandler((data) => {
+        if (data.action === 'chat') {
+          setChatOpen(true)
+        } else if (data.action === 'overtime') {
+          setApprovalsOpen(true)
+        } else if (data.route) {
+          navigate(data.route)
+        }
+      })
+    }
+  }, [navigate, staff?.id])
 
   // Reset visibility when route changes
   useEffect(() => {
