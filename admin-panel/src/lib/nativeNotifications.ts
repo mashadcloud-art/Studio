@@ -97,11 +97,8 @@ export async function triggerNativeNotification({
           title,
           body,
           channelId: 'nailuxe_alerts',
-          largeIcon: 'ic_launcher',
-          smallIcon: 'ic_launcher_foreground',
-          sound: undefined,
           extra: { action, route },
-          schedule: { at: new Date(Date.now() + 100) },
+          schedule: { at: new Date(Date.now() + 50) },
         },
       ],
     })

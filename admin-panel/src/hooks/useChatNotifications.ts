@@ -147,7 +147,7 @@ export function useChatNotifications(isChatOpen: boolean) {
     }
   }, [isChatOpen, qc])
 
-  // Listen to postgres realtime as well for instant delivery
+  // Listen to postgres realtime directly for instant delivery even when minimized
   useEffect(() => {
     if (!currentAdmin) return
 
@@ -158,9 +158,42 @@ export function useChatNotifications(isChatOpen: boolean) {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'staff_notes' },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (payload: any) => {
+        async (payload: any) => {
           const newNote = payload.new
-          if (newNote.sender_id === currentAdmin.id) return
+          if (!newNote || newNote.sender_id === currentAdmin.id) return
+
+          // Determine if this message is directed to me
+          const isForMe = isAdmin
+            ? newNote.sender_role !== 'admin'
+            : newNote.staff_id === currentAdmin.id && newNote.sender_role === 'admin'
+
+          if (isForMe && !isChatOpen) {
+            lastKnownMaxCreatedRef.current = newNote.created_at
+            playNotificationChime()
+
+            // Fetch sender name if possible
+            let senderName = newNote.sender_role === 'admin' ? 'Owner / Admin' : 'Staff'
+            try {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const { data: senderStaff } = await (supabase as any)
+                .from('staff')
+                .select('name')
+                .eq('id', newNote.sender_id)
+                .single()
+              if (senderStaff?.name) senderName = toTitleCase(senderStaff.name)
+            } catch {
+              // fallback to senderName
+            }
+
+            const messageSnippet = newNote.message || (newNote.voice_url ? '🎤 Voice note' : 'New message')
+
+            // Trigger instant native Android heads-up notification (works minimized!)
+            triggerNativeNotification({
+              title: `💬 ${senderName}`,
+              body: messageSnippet,
+              action: 'chat',
+            })
+          }
 
           qc.invalidateQueries({ queryKey: ['chat_unread_status'] })
           qc.invalidateQueries({ queryKey: ['staff_notes', newNote.staff_id] })
@@ -171,7 +204,7 @@ export function useChatNotifications(isChatOpen: boolean) {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [currentAdmin, isChatOpen, qc])
+  }, [currentAdmin, isAdmin, isChatOpen, qc])
 
   return {
     hasUnread: unreadData.count > 0 && !isChatOpen,

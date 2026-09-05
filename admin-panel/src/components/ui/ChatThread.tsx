@@ -106,9 +106,12 @@ export function ChatThread({ staffId, currentSenderId, currentSenderRole, title,
   }
 
   return (
-    <div className="flex flex-col rounded-2xl border border-[#E8DEF8] dark:border-[#382E48] bg-white dark:bg-[#1D192B] overflow-hidden">
+    <div
+      className="flex flex-col h-full rounded-2xl border border-[#E8DEF8] dark:border-[#382E48] bg-white dark:bg-[#1D192B] overflow-hidden shadow-sm"
+      style={{ height: height === '100%' ? '100%' : undefined }}
+    >
       {title && (
-        <div className="flex items-center gap-[7px] px-3.5 py-2.5 border-b border-[#F3EDF7] dark:border-[#2B2930] bg-[#F3EDF7]/50 dark:bg-[#2B2930]/50">
+        <div className="shrink-0 flex items-center gap-[7px] px-3.5 py-2.5 border-b border-[#F3EDF7] dark:border-[#2B2930] bg-[#F3EDF7]/50 dark:bg-[#2B2930]/50">
           <NotebookPen size={14} className="text-[#79747E] dark:text-[#938F99]" />
           <span className="text-xs font-bold text-[#1D1A22] dark:text-[#E6E0E9]">{title}</span>
         </div>
@@ -116,9 +119,9 @@ export function ChatThread({ staffId, currentSenderId, currentSenderRole, title,
 
       <div
         ref={scrollRef}
-        className="bg-[#FEF7FF] dark:bg-[#141218]"
+        className="flex-1 min-h-0 overflow-y-auto bg-[#FEF7FF] dark:bg-[#141218] p-3.5 flex flex-col gap-0.5"
         style={{
-          height, overflowY: 'auto', padding: '14px', display: 'flex', flexDirection: 'column', gap: 2,
+          height: height === '100%' ? undefined : height,
           backgroundImage: 'radial-gradient(circle, rgba(0,0,0,0.035) 1px, transparent 1px)',
           backgroundSize: '16px 16px',
         }}
@@ -212,7 +215,8 @@ export function ChatThread({ staffId, currentSenderId, currentSenderRole, title,
         )}
       </div>
 
-      <div className="border-t border-[#F3EDF7] dark:border-[#2B2930] bg-[#F3EDF7]/50 dark:bg-[#2B2930]/50" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px' }}>
+      {/* Input reply footer: always sticky and visible above the bottom navigation / safe area */}
+      <div className="shrink-0 border-t border-[#F3EDF7] dark:border-[#2B2930] bg-[#F3EDF7]/95 dark:bg-[#2B2930]/95 backdrop-blur-md px-3 pt-2.5 pb-[max(env(safe-area-inset-bottom),12px)] flex items-center gap-2 z-10">
         <VoiceRecorder onSend={handleSendVoice} sending={uploadingVoice} />
         <input
           type="text"
@@ -223,16 +227,15 @@ export function ChatThread({ staffId, currentSenderId, currentSenderRole, title,
           }}
           onKeyDown={e => { if (e.key === 'Enter') handleSendText() }}
           placeholder="Type a reply…"
-          className="border border-[#CAC4D0] dark:border-[#44474F] bg-white dark:bg-[#2B2930] text-[#1D1A22] dark:text-[#E6E0E9]"
-          style={{ flex: 1, borderRadius: 99, padding: '9px 14px', fontSize: 13, outline: 'none', fontFamily: 'Inter, sans-serif' }}
+          className="flex-1 border border-[#CAC4D0] dark:border-[#44474F] bg-white dark:bg-[#1D192B] text-[#1D1A22] dark:text-[#E6E0E9] rounded-full px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#9C6ADE] shadow-xs"
         />
         <button
           onClick={handleSendText}
           disabled={!text.trim() || sendNote.isPending}
-          className="bg-[#6750A4] dark:bg-[#D0BCFF] text-white dark:text-[#381E72]"
-          style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, opacity: !text.trim() ? 0.4 : 1 }}
+          className="w-10 h-10 rounded-full bg-[#6750A4] dark:bg-[#D0BCFF] text-white dark:text-[#381E72] flex items-center justify-center cursor-pointer shrink-0 disabled:opacity-40 transition-all shadow-md active:scale-95"
+          aria-label="Send message"
         >
-          <Send size={15} />
+          <Send size={16} />
         </button>
       </div>
     </div>
