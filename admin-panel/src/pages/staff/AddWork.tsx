@@ -11,6 +11,7 @@ import { useCreateWorkRecord, useUpdateWorkRecord, useTodayWorkRecords } from '.
 import { formatCurrency, formatTime, calculateDuration } from '../../lib/utils'
 import type { WorkRecordWithRelations, Customer, Service } from '../../types/database'
 import { supabase } from '../../lib/supabase'
+import { dispatchPushNotification } from '../../lib/pushNotifications'
 import toast from 'react-hot-toast'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -178,13 +179,33 @@ export function AddWork() {
 
       setActiveRecord(record as WorkRecordWithRelations)
       toast.success(`Session started! Payment: ${paymentMethod.toUpperCase()}`)
+
+      // Notify owner / admin
+      dispatchPushNotification({
+        targetRole: 'admin',
+        title: '▶️ Session Started',
+        body: `${staff.name} started ${selectedService.name} for ${data.customerName} (${formatCurrency(totalAmount)})`,
+        data: { action: 'work', staffId: staff.id },
+      })
     } catch (e: unknown) { toast.error((e as Error).message) }
   }
 
   const stopSession = async () => {
     if (!activeRecord) return
+    const customerName = (activeRecord.customers as { name?: string } | undefined)?.name || 'customer'
+    const serviceName = (activeRecord.services as { name?: string } | undefined)?.name || 'service'
+
     await updateWork.mutateAsync({ id: activeRecord.id, updates: { end_time: new Date().toISOString() } })
     toast.success('Session completed! 🎉')
+
+    // Notify owner / admin
+    dispatchPushNotification({
+      targetRole: 'admin',
+      title: '🎉 Job Completed',
+      body: `${staff?.name || 'Staff'} completed ${serviceName} for ${customerName}`,
+      data: { action: 'work', staffId: staff?.id || '' },
+    })
+
     setActiveRecord(null); reset(); setCustomerSearch(''); setSelectedService(null)
     setPrimaryDiscount(''); setExtraServices([]); setCustomAmount(''); setWorkPhotoUrl(null)
     setServiceSearch(''); setPaymentMethod('cash')

@@ -8,6 +8,7 @@ import { getTodayString } from '../../lib/utils'
 import { useRaiseOvertimePending, useRequestOvertimeReminder } from '../../hooks/useNotifications'
 import { Geolocation } from '@capacitor/geolocation'
 import { Capacitor } from '@capacitor/core'
+import { dispatchPushNotification } from '../../lib/pushNotifications'
 import toast from 'react-hot-toast'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -329,6 +330,14 @@ export function CheckIn() {
       } else {
         toast('Checked in (GPS unavailable — location not verified)', { icon: '⚠️' })
       }
+
+      // Notify owner / admin
+      dispatchPushNotification({
+        targetRole: 'admin',
+        title: '📍 Staff Check-In',
+        body: `${staff.name} checked in at ${format(new Date(), 'hh:mm a')}${loc?.verified ? ' (At studio)' : ''}`,
+        data: { action: 'attendance', staffId: staff.id },
+      })
     } catch (e: unknown) {
       toast.error((e as Error).message)
     }
@@ -376,6 +385,14 @@ export function CheckIn() {
       toast.success(overrideTime
         ? `Checked out at ${overrideTime} (${h}h ${m}m this session)`
         : `✅ Checked out at ${format(new Date(), 'HH:mm')} — ${h}h ${m}m this session`)
+
+      // Notify owner / admin
+      dispatchPushNotification({
+        targetRole: 'admin',
+        title: '👋 Staff Check-Out',
+        body: `${staff.name} checked out at ${format(new Date(), 'hh:mm a')} (${h}h ${m}m shift)`,
+        data: { action: 'attendance', staffId: staff.id },
+      })
 
       setShowForgotModal(false)
       setForgotTime('')

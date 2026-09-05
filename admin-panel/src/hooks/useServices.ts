@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { dispatchPushNotification } from '../lib/pushNotifications'
 import type { Service } from '../types/database'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -41,6 +42,14 @@ export function useCreateService() {
         .select()
         .single()
       if (error) throw error
+
+      dispatchPushNotification({
+        targetRole: 'admin',
+        title: '✨ New Service Added',
+        body: `New service added: "${service.name}" (AED ${service.price})`,
+        data: { action: 'service', serviceId: data.id },
+      })
+
       return data as Service
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['services'] }),

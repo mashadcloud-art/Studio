@@ -94,6 +94,47 @@ export async function uploadAudioToCloudinary(
 }
 
 /**
+ * Compress images on client before uploading to drastically reduce upload time (from 10MB to ~250KB)
+ */
+async function compressImageIfNeeded(file: File | Blob): Promise<File | Blob> {
+  if (!file.type || !file.type.startsWith('image/') || file.type.includes('gif')) {
+    return file
+  }
+
+  try {
+    const bitmap = await createImageBitmap(file)
+    const MAX_DIM = 1600
+    let { width, height } = bitmap
+    if (width > MAX_DIM || height > MAX_DIM) {
+      if (width > height) {
+        height = Math.round((height * MAX_DIM) / width)
+        width = MAX_DIM
+      } else {
+        width = Math.round((width * MAX_DIM) / height)
+        height = MAX_DIM
+      }
+    }
+
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return file
+    ctx.drawImage(bitmap, 0, 0, width, height)
+
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, 'image/jpeg', 0.82)
+    )
+    if (blob && blob.size < file.size) {
+      return new File([blob], 'photo.jpg', { type: 'image/jpeg' })
+    }
+    return file
+  } catch {
+    return file
+  }
+}
+
+/**
  * Upload an image, camera photo, or video to Cloudinary using /auto/upload
  */
 export async function uploadMediaToCloudinary(
@@ -105,8 +146,10 @@ export async function uploadMediaToCloudinary(
     throw new Error('Cloudinary not configured.')
   }
 
+  const uploadFile = await compressImageIfNeeded(file)
+
   const formData = new FormData()
-  formData.append('file', file)
+  formData.append('file', uploadFile)
   formData.append('upload_preset', UPLOAD_PRESET)
   formData.append('folder', folder)
 

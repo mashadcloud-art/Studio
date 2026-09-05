@@ -87,6 +87,21 @@ async function getGoogleAccessToken(): Promise<string> {
   return cachedAccessToken
 }
 
+function cleanNotificationBody(body: string): string {
+  if (!body) return 'New notification'
+  const trimmed = body.trim()
+  if (trimmed.startsWith('[image]') || (trimmed.includes('cloudinary.com') && !trimmed.startsWith('[video]'))) {
+    return '📷 Photo'
+  }
+  if (trimmed.startsWith('[video]') || trimmed.includes('/video/upload/')) {
+    return '🎥 Video'
+  }
+  if (trimmed.startsWith('🎤') || trimmed.includes('/audio/upload/') || trimmed.endsWith('.mp3') || trimmed.endsWith('.webm') || trimmed.endsWith('.m4a')) {
+    return '🎤 Voice note'
+  }
+  return trimmed
+}
+
 /**
  * Dispatch Firebase Cloud Messaging (FCM) v1 push notification
  * Delivers directly to Android Google Play Services even when app is closed or phone is locked!
@@ -116,6 +131,24 @@ export async function sendFcmPushNotification(params: {
         .eq('key', `fcm_token_admin_${params.targetStaffId}`)
         .single()
       if (adminRow?.value && !tokens.includes(adminRow.value)) tokens.push(adminRow.value)
+
+      // Check staff_notes for staff token
+      try {
+        const { data: noteRow } = await db
+          .from('staff_notes')
+          .select('message')
+          .eq('staff_id', params.targetStaffId)
+          .like('message', '[fcm_token]:%')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (noteRow?.message) {
+          const tok = noteRow.message.replace('[fcm_token]:', '').trim()
+          if (tok && !tokens.includes(tok)) tokens.push(tok)
+        }
+      } catch {
+        // ignore
+      }
     }
 
     if (params.targetRole === 'admin') {
@@ -198,7 +231,7 @@ export async function sendFcmPushNotification(params: {
                 token,
                 notification: {
                   title: params.title,
-                  body: params.body,
+                  body: cleanNotificationBody(params.body),
                 },
                 android: {
                   priority: 'HIGH',

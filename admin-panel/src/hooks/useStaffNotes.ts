@@ -27,7 +27,7 @@ export function useStaffNotes(staffId: string | undefined) {
         .eq('staff_id', staffId)
         .order('created_at', { ascending: true })
       if (error) throw error
-      return data as StaffNote[]
+      return ((data || []) as StaffNote[]).filter(n => !n.message?.startsWith('[fcm_token]:'))
     },
     enabled: !!staffId,
     refetchInterval: 2000,
@@ -38,6 +38,23 @@ export function useStaffNotes(staffId: string | undefined) {
 export function useSendStaffNote(staffId: string | undefined) {
   const qc = useQueryClient()
   return useMutation({
+    onMutate: async (params) => {
+      if (!staffId) return
+      await qc.cancelQueries({ queryKey: ['staff_notes', staffId] })
+      const previousNotes = qc.getQueryData<StaffNote[]>(['staff_notes', staffId])
+      const tempNote: StaffNote = {
+        id: `temp-${Date.now()}`,
+        staff_id: staffId,
+        sender_id: params.senderId,
+        sender_role: params.senderRole,
+        message: params.message ?? null,
+        voice_url: params.voiceUrl ?? null,
+        voice_duration: params.voiceDuration ?? null,
+        created_at: new Date().toISOString(),
+      }
+      qc.setQueryData<StaffNote[]>(['staff_notes', staffId], (old = []) => [...old, tempNote])
+      return { previousNotes }
+    },
     mutationFn: async (params: {
       senderId: string
       senderRole: 'admin' | 'staff'
@@ -79,6 +96,11 @@ export function useSendStaffNote(staffId: string | undefined) {
 
       return data as StaffNote
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['staff_notes', staffId] }),
+    onError: (_err, _vars, context) => {
+      if (context?.previousNotes) {
+        qc.setQueryData(['staff_notes', staffId], context.previousNotes)
+      }
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['staff_notes', staffId] }),
   })
 }

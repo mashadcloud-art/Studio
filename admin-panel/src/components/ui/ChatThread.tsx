@@ -201,7 +201,10 @@ export function ChatThread({ staffId, staffName: propStaffName, currentSenderId,
         }}
       >
         {/* Chat Thread Header with Fullscreen and Clear Chat Options */}
-        <div className="shrink-0 flex items-center justify-between px-3.5 py-2.5 border-b border-[#F3EDF7] dark:border-[#2B2930] bg-[#F3EDF7]/80 dark:bg-[#2B2930]/80">
+        <div className={cn(
+          "shrink-0 flex items-center justify-between border-b border-[#F3EDF7] dark:border-[#2B2930] bg-[#F3EDF7]/95 dark:bg-[#2B2930]/95 backdrop-blur-md transition-all",
+          isFullscreen ? "pt-[max(env(safe-area-inset-top),46px)] pb-3 px-4 shadow-sm" : "py-2.5 px-3.5"
+        )}>
           <div className="flex items-center gap-[7px]">
             <NotebookPen size={14} className="text-[#79747E] dark:text-[#938F99]" />
             <span className="text-xs font-bold text-[#1D1A22] dark:text-[#E6E0E9]">

@@ -92,8 +92,8 @@ export function useAppUpdate() {
       }
 
       latestVer = latestVer || CURRENT_APP_VERSION
-      apkUrl = apkUrl || 'https://github.com/mashadcloud-art/Studio/releases/download/v1.0.7/Nailuxe-Studio.apk'
-      releaseNotes = releaseNotes || 'Staff settings, microphone permission fix, fullscreen chat, camera & media sharing, and staff name display.'
+      apkUrl = apkUrl || 'https://github.com/mashadcloud-art/Studio/releases/download/v1.0.8/Nailuxe-Studio.apk'
+      releaseNotes = releaseNotes || 'Header safe-area padding fix, staff push delivery fix, instant optimistic chat, fast image compression, and admin notifications for check-in/out, start session, job completion & services.'
 
       const hasUpdate = isNewerVersion(latestVer, CURRENT_APP_VERSION)
 
