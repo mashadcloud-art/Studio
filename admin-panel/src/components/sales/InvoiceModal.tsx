@@ -426,8 +426,6 @@ Panampilly Nagar, Kochi | +91 98407 00734`
     }
   }
 
-  const isGpay = sale.paymentMethod?.toLowerCase().includes('gpay') || sale.paymentMethod?.toLowerCase().includes('google')
-
   return (
     <Modal open={open} onClose={onClose} title={`Invoice #${sale.invoiceNumber}`} size="lg">
       <div className="space-y-6">
