@@ -32,9 +32,9 @@ export function StaffChatPage() {
   }
 
   return (
-    <div className="space-y-4 max-w-2xl mx-auto">
+    <div className="h-[calc(100dvh-175px)] max-w-2xl mx-auto flex flex-col min-h-0 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="shrink-0 flex items-center gap-3 mb-2">
         <button
           onClick={() => navigate('/staff')}
           aria-label="Back to team"
@@ -64,13 +64,15 @@ export function StaffChatPage() {
       </div>
 
       {/* Full chat thread */}
-      <ChatThread
-        staffId={staff.id}
-        currentSenderId={currentAdmin.id}
-        currentSenderRole="admin"
-        emptyLabel="No messages yet — send a note or a voice note."
-        height="calc(100vh - 220px)"
-      />
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        <ChatThread
+          staffId={staff.id}
+          currentSenderId={currentAdmin.id}
+          currentSenderRole="admin"
+          emptyLabel="No messages yet — send a note or a voice note."
+          height="100%"
+        />
+      </div>
     </div>
   )
 }

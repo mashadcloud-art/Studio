@@ -14,6 +14,7 @@ import { useNotifications, unreadCount } from '../../hooks/useNotifications'
 import { initNativeNotifications, registerNotificationTapHandler } from '../../lib/nativeNotifications'
 import { initPushNotifications, registerPushTapHandler } from '../../lib/pushNotifications'
 import { UpdateModal } from '../common/UpdateModal'
+import { PermissionsModal } from '../ui/PermissionsModal'
 
 // Routes that render their own full-bleed hero/header and don't want the generic mobile topbar.
 const NO_TOPBAR_ROUTES = ['/my-profile']
@@ -291,6 +292,7 @@ export function Layout() {
         }}
       />
       <UpdateModal />
+      <PermissionsModal userId={staff?.id} />
     </div>
   )
 }
