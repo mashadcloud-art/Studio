@@ -80,6 +80,24 @@ export function useSendStaffNote(staffId: string | undefined) {
 
       // Trigger Firebase push notification in background
       const isFromAdmin = params.senderRole === 'admin'
+
+      // CRITICAL RULE: If sender is admin, NEVER notify admin or self!
+      if (isFromAdmin) {
+        // Admin chatting in own thread
+        if (staffId === params.senderId) {
+          return data as StaffNote
+        }
+        // Check if recipient is an admin (ADMIN TO ADMIN MESSAGES NOT SHOW)
+        try {
+          const { data: recipientStaff } = await db.from('staff').select('role').eq('id', staffId).maybeSingle()
+          if (recipientStaff?.role === 'admin') {
+            return data as StaffNote
+          }
+        } catch {
+          // ignore
+        }
+      }
+
       dispatchPushNotification({
         targetStaffId: isFromAdmin ? staffId : undefined,
         targetRole: isFromAdmin ? undefined : 'admin',

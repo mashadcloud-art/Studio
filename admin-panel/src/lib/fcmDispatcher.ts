@@ -225,18 +225,18 @@ export async function sendFcmPushNotification(params: {
     // If sender's own token is saved locally, handle test mode and fallback
     const myToken = typeof window !== 'undefined' ? localStorage.getItem('nailuxe_fcm_token') : null
 
-    if (myToken && (params.data?.isTest || tokens.length === 0)) {
-      if (!tokens.includes(myToken)) {
-        tokens.push(myToken)
-      }
+    // Only in explicit test mode should myToken ever be included
+    if (params.data?.isTest && myToken && !tokens.includes(myToken)) {
+      tokens.push(myToken)
     }
 
-    const finalTokens = (!params.data?.isTest && myToken && tokens.length > 1)
+    // In normal (non-test) mode, ALWAYS exclude sender's own token! Sender must NEVER receive their own push notification
+    const finalTokens = (!params.data?.isTest && myToken)
       ? tokens.filter((t) => t !== myToken)
       : tokens
 
     if (finalTokens.length === 0) {
-      console.log('No recipient FCM tokens available to dispatch to.')
+      console.log('No recipient FCM tokens available (excluding sender).')
       return { sent: 0 }
     }
 

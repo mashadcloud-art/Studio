@@ -267,10 +267,11 @@ export function ChatThread({ staffId, staffName: propStaffName, currentSenderId,
             </div>
           ) : (
             notes.map((n, i) => {
-              const mine = n.sender_id === currentSenderId
+              const mine = n.sender_id === currentSenderId || (currentSenderRole === 'admin' && n.sender_role === 'admin')
               const prev = notes[i - 1]
               const isNewDay = !prev || dayLabel(prev.created_at) !== dayLabel(n.created_at)
-              const isConsecutive = !isNewDay && prev && prev.sender_id === n.sender_id
+              const prevMine = prev && (prev.sender_id === currentSenderId || (currentSenderRole === 'admin' && prev.sender_role === 'admin'))
+              const isConsecutive = !isNewDay && prev && ((prev.sender_id === n.sender_id) || (mine && prevMine))
 
               const msg = n.message || ''
               const isImageMsg = msg.startsWith('[image]')

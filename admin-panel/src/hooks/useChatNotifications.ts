@@ -43,7 +43,8 @@ export function playNotificationChime() {
 }
 
 export function useChatNotifications(isChatOpen: boolean) {
-  const { staff: currentAdmin, isAdmin } = useAuth()
+  const { staff: currentAdmin, actualStaff, isAdmin, isImpersonating } = useAuth()
+  const effectiveAdmin = isAdmin && !isImpersonating
   const qc = useQueryClient()
   const lastKnownMaxCreatedRef = useRef<string | null>(null)
   const isFirstMountRef = useRef(true)
@@ -55,23 +56,23 @@ export function useChatNotifications(isChatOpen: boolean) {
   const [lastRead, setLastRead] = useState<string>(getLastReadTime)
 
   // Query unread messages from staff_notes
-  const { data: unreadData = { count: 0, latestSender: '', latestMessage: '', latestCreatedAt: '' } } = useQuery({
-    queryKey: ['chat_unread_status', currentAdmin?.id, lastRead],
+  const { data: unreadData = { count: 0, latestSender: '', latestMessage: '', latestCreatedAt: '', latestSenderRole: '' } } = useQuery({
+    queryKey: ['chat_unread_status', currentAdmin?.id, lastRead, effectiveAdmin],
     queryFn: async () => {
-      if (!currentAdmin?.id) return { count: 0, latestSender: '', latestMessage: '', latestCreatedAt: '' }
+      if (!currentAdmin?.id) return { count: 0, latestSender: '', latestMessage: '', latestCreatedAt: '', latestSenderRole: '' }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const db = supabase as any
 
       // Admin receives messages where sender_role != 'admin' (from staff)
-      // Staff receives messages where sender_role == 'admin' AND staff_id == staff.id
+      // Staff receives messages where sender_role == 'admin' AND staff_id == currentAdmin.id
       let query = db
         .from('staff_notes')
         .select('id, staff_id, sender_id, sender_role, message, voice_url, created_at, staff:staff_id(name)')
         .gt('created_at', lastRead)
         .order('created_at', { ascending: false })
 
-      if (isAdmin) {
+      if (effectiveAdmin) {
         query = query.neq('sender_role', 'admin')
       } else {
         query = query.eq('staff_id', currentAdmin.id).eq('sender_role', 'admin')
@@ -79,10 +80,22 @@ export function useChatNotifications(isChatOpen: boolean) {
 
       const { data, error } = await query
 
-      if (error || !data) return { count: 0, latestSender: '', latestMessage: '', latestCreatedAt: '' }
+      if (error || !data) return { count: 0, latestSender: '', latestMessage: '', latestCreatedAt: '', latestSenderRole: '' }
 
-      const count = data.length
-      const latest = data[0]
+      // STRICT FILTER:
+      // 1. NEVER include own messages (sender_id == currentAdmin.id or actualStaff.id)
+      // 2. If effectiveAdmin: NEVER include any message from an admin (sender_role == 'admin')
+      // 3. If not admin (staff): NEVER include messages not meant for this staff
+      const validMessages = data.filter((msg: any) => {
+        if (msg.sender_id === currentAdmin.id) return false
+        if (actualStaff && msg.sender_id === actualStaff.id) return false
+        if (effectiveAdmin && msg.sender_role === 'admin') return false
+        if (!effectiveAdmin && (msg.staff_id !== currentAdmin.id || msg.sender_role !== 'admin')) return false
+        return true
+      })
+
+      const count = validMessages.length
+      const latest = validMessages[0]
       const senderName = latest?.staff?.name || 'Staff'
       const msgSnippet = latest?.message || (latest?.voice_url ? '🎤 Voice note' : 'New message')
 
@@ -91,6 +104,7 @@ export function useChatNotifications(isChatOpen: boolean) {
         latestSender: senderName,
         latestMessage: msgSnippet,
         latestCreatedAt: latest?.created_at || '',
+        latestSenderRole: latest?.sender_role || '',
       }
     },
     enabled: !!currentAdmin?.id,
@@ -112,6 +126,9 @@ export function useChatNotifications(isChatOpen: boolean) {
       unreadData.latestCreatedAt !== lastKnownMaxCreatedRef.current &&
       !isChatOpen
     ) {
+      // Guard: Never notify admin if the latest message was sent by an admin
+      if (effectiveAdmin && unreadData.latestSenderRole === 'admin') return
+
       lastKnownMaxCreatedRef.current = unreadData.latestCreatedAt
       playNotificationChime()
       const sender = toTitleCase(unreadData.latestSender)
@@ -135,7 +152,7 @@ export function useChatNotifications(isChatOpen: boolean) {
         },
       })
     }
-  }, [unreadData, isChatOpen])
+  }, [unreadData, isChatOpen, effectiveAdmin])
 
   // Clear unread badge when chat is opened
   useEffect(() => {
@@ -160,14 +177,22 @@ export function useChatNotifications(isChatOpen: boolean) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         async (payload: any) => {
           const newNote = payload.new
-          if (!newNote || newNote.sender_id === currentAdmin.id) return
+          if (!newNote) return
 
-          // Determine if this message is directed to me
-          const isForMe = isAdmin
-            ? newNote.sender_role !== 'admin'
-            : newNote.staff_id === currentAdmin.id && newNote.sender_role === 'admin'
+          // 1. NEVER notify sender of their own message!
+          if (newNote.sender_id === currentAdmin.id) return
+          if (actualStaff && newNote.sender_id === actualStaff.id) return
 
-          if (isForMe && !isChatOpen) {
+          // 2. If I am admin: NEVER notify about messages sent by an admin! (No admin to admin messages)
+          if (effectiveAdmin && newNote.sender_role === 'admin') return
+
+          // 3. If I am staff: only notify if the note is in my thread AND sent by admin
+          if (!effectiveAdmin) {
+            if (newNote.staff_id !== currentAdmin.id) return
+            if (newNote.sender_role !== 'admin') return
+          }
+
+          if (!isChatOpen) {
             lastKnownMaxCreatedRef.current = newNote.created_at
             playNotificationChime()
 
@@ -204,7 +229,7 @@ export function useChatNotifications(isChatOpen: boolean) {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [currentAdmin, isAdmin, isChatOpen, qc])
+  }, [currentAdmin, actualStaff, effectiveAdmin, isChatOpen, qc])
 
   return {
     hasUnread: unreadData.count > 0 && !isChatOpen,
