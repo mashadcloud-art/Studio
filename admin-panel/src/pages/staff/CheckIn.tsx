@@ -6,6 +6,8 @@ import { useTheme } from '../../contexts/ThemeContext'
 import { supabase } from '../../lib/supabase'
 import { getTodayString } from '../../lib/utils'
 import { useRaiseOvertimePending, useRequestOvertimeReminder } from '../../hooks/useNotifications'
+import { Geolocation } from '@capacitor/geolocation'
+import { Capacitor } from '@capacitor/core'
 import toast from 'react-hot-toast'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -223,17 +225,46 @@ export function CheckIn() {
     setReminderSent(false)
   }, [day?.id])
 
-  // Get GPS location
-  const getLocation = (): Promise<GeolocationPosition> => {
+  // Get GPS location with native Android permission support
+  const getLocation = async (): Promise<{ coords: { latitude: number; longitude: number; accuracy: number } }> => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const perm = await Geolocation.checkPermissions()
+        if (perm.location !== 'granted') {
+          const req = await Geolocation.requestPermissions()
+          if (req.location !== 'granted') {
+            throw new Error('Location permission denied. Please allow Location in Android Settings > Apps > Nailuxe Studio.')
+          }
+        }
+        const pos = await Geolocation.getCurrentPosition({
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 5000,
+        })
+        return pos
+      } catch (err: unknown) {
+        console.warn('Native GPS error, falling back to browser API:', err)
+        // Fall back to navigator.geolocation if plugin encounters an issue
+      }
+    }
+
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
-        reject(new Error('GPS not available on this device'))
+        reject(new Error('GPS is not available on this device'))
         return
       }
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
+      navigator.geolocation.getCurrentPosition(resolve, (err) => {
+        if (err.code === 1) {
+          reject(new Error('Location access was denied. Please allow location access in your phone settings.'))
+        } else if (err.code === 2) {
+          reject(new Error('GPS signal unavailable. Please ensure location/GPS is turned ON.'))
+        } else {
+          reject(new Error('GPS timeout. Please check your phone location.'))
+        }
+      }, {
         enableHighAccuracy: true,
         timeout: 15000,
-        maximumAge: 0,
+        maximumAge: 5000,
       })
     })
   }
@@ -249,7 +280,7 @@ export function CheckIn() {
       getCityName(latitude, longitude).then(city => setCityName(city))
       return { lat: latitude, lng: longitude, accuracy, dist, verified: dist <= studioLocation.radius }
     } catch (e: unknown) {
-      toast.error(`GPS error: ${(e as Error).message}`)
+      toast.error(`${(e as Error).message}`, { duration: 5000 })
       return null
     } finally {
       setGpsLoading(false)

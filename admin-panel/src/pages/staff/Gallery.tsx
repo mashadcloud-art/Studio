@@ -491,75 +491,99 @@ export function Gallery() {
         onChange={handleFilesSelected}
       />
 
-      {/* ── TOP HEADER BAR: TITLE & ACTIONS ────────────────────────── */}
+      {/* ── TOP HEADER BAR: TITLE & SLEEK ACTIONS ─────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black text-[#1D1A22] dark:text-[#E6E0E9] tracking-tight flex items-center gap-2">
-            <span>{isAdmin ? 'Master Studio Gallery' : `${staff?.name ?? 'My'} Work Gallery`}</span>
-            {!isAdmin && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-[#6750A4] text-white">
-                MY WORK
-              </span>
-            )}
-          </h1>
-          <p className="text-xs text-[#79747E] dark:text-[#938F99] mt-0.5">
-            {isAdmin
-              ? 'View all nail sets completed across all stylists, or switch to Ideas Lookbook'
-              : 'Photos of nail sets & artistry you completed for your clients'}
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-black text-[#1D1A22] dark:text-[#E6E0E9] tracking-tight flex items-center gap-2">
+              <span>{isAdmin ? 'Studio Gallery' : `${staff?.name ?? 'My'} Work Gallery`}</span>
+              {!isAdmin && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-[#6750A4] text-white">
+                  MY WORK
+                </span>
+              )}
+            </h1>
+            <p className="text-xs text-[#79747E] dark:text-[#938F99] mt-0.5">
+              {isAdmin
+                ? 'Portfolio & nail art lookbook'
+                : 'Nail sets & artistry completed for your clients'}
+            </p>
+          </div>
+
+          {/* Quick Action Icon Buttons (Visible on Mobile right beside Title) */}
+          <div className="flex items-center gap-2 sm:hidden">
+            <button
+              type="button"
+              onClick={triggerCamera}
+              className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#6750A4] to-[#7F67BE] text-white flex items-center justify-center shadow-sm hover:scale-105 active:scale-95 transition-all cursor-pointer select-none"
+              title="Snap client photo with camera"
+            >
+              <Camera size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={triggerUpload}
+              className="w-10 h-10 rounded-2xl bg-white dark:bg-[#2B2930] border border-[#E8DEF8] dark:border-[#382E48] text-[#6750A4] dark:text-[#D0BCFF] flex items-center justify-center shadow-xs hover:bg-[#F3EDF7] active:scale-95 transition-all cursor-pointer select-none"
+              title="Upload photos from device"
+            >
+              <Upload size={17} />
+            </button>
+          </div>
         </div>
 
-        {/* Action Controls */}
-        <div className="flex items-center gap-2">
-          {/* Showcase vs Inspire Tab Switcher */}
-          <div className="inline-flex bg-[#F3EDF7] dark:bg-[#2B2930] p-1 rounded-2xl border border-[#E8DEF8] dark:border-[#382E48]">
+        {/* Tab Switcher & Desktop Action Buttons */}
+        <div className="flex items-center justify-between sm:justify-end gap-2.5">
+          {/* Showcase vs Inspire Segmented Controller */}
+          <div className="inline-flex flex-1 sm:flex-initial bg-[#F3EDF7] dark:bg-[#2B2930] p-1 rounded-2xl border border-[#E8DEF8] dark:border-[#382E48]">
             <button
               onClick={() => { setMainTab('showcase'); setSelectedTag('all') }}
-              className={`flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs font-bold transition-all ${
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 py-1.5 px-3.5 rounded-xl text-xs font-bold transition-all ${
                 mainTab === 'showcase'
-                  ? 'bg-[#6750A4] text-white shadow-sm dark:bg-[#D0BCFF] dark:text-[#381E72]'
-                  : 'text-[#49454F] dark:text-[#CAC4D0] hover:bg-black/5'
+                  ? 'bg-white dark:bg-[#1E1B2E] text-[#6750A4] dark:text-[#D0BCFF] shadow-xs'
+                  : 'text-[#49454F] dark:text-[#CAC4D0] hover:text-[#1D1A22]'
               }`}
             >
-              <ImageIcon size={13} />
+              <ImageIcon size={14} className={mainTab === 'showcase' ? 'text-[#6750A4] dark:text-[#D0BCFF]' : ''} />
               <span>{isAdmin ? 'All Works' : 'My Sets'}</span>
-              <span className="text-[10px] opacity-80">({showcaseCount})</span>
+              <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-[#EADDFF]/70 dark:bg-[#382E48]">{showcaseCount}</span>
             </button>
 
             <button
               onClick={() => { setMainTab('inspire'); setSelectedTag('all') }}
-              className={`flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs font-bold transition-all ${
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 py-1.5 px-3.5 rounded-xl text-xs font-bold transition-all ${
                 mainTab === 'inspire'
-                  ? 'bg-[#6750A4] text-white shadow-sm dark:bg-[#D0BCFF] dark:text-[#381E72]'
-                  : 'text-[#49454F] dark:text-[#CAC4D0] hover:bg-black/5'
+                  ? 'bg-white dark:bg-[#1E1B2E] text-[#6750A4] dark:text-[#D0BCFF] shadow-xs'
+                  : 'text-[#49454F] dark:text-[#CAC4D0] hover:text-[#1D1A22]'
               }`}
             >
-              <Lightbulb size={13} className={mainTab === 'inspire' ? 'text-amber-300' : ''} />
-              <span>Inspire Ideas</span>
-              <span className="text-[10px] opacity-80">({inspireCount})</span>
+              <Lightbulb size={14} className={mainTab === 'inspire' ? 'text-amber-500 fill-amber-400/20' : ''} />
+              <span>Ideas Lookbook</span>
+              <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-[#EADDFF]/70 dark:bg-[#382E48]">{inspireCount}</span>
             </button>
           </div>
 
-          {/* Snap & Upload Buttons */}
-          <button
-            type="button"
-            onClick={triggerCamera}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#6750A4] to-[#7950A4] text-white text-xs font-bold shadow-sm hover:opacity-95 active:scale-95 transition-all cursor-pointer select-none"
-            title="Snap client photo with camera"
-          >
-            <Camera size={14} />
-            <span className="text-xs">Snap</span>
-          </button>
+          {/* Desktop Snap & Upload Buttons */}
+          <div className="hidden sm:flex items-center gap-2">
+            <button
+              type="button"
+              onClick={triggerCamera}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#6750A4] to-[#7950A4] text-white text-xs font-bold shadow-sm hover:opacity-95 active:scale-95 transition-all cursor-pointer select-none"
+              title="Snap client photo with camera"
+            >
+              <Camera size={15} />
+              <span>Snap</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={triggerUpload}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white dark:bg-[#1D192B] border border-[#CAC4D0] dark:border-[#44474F] text-[#1D1A22] dark:text-[#E6E0E9] text-xs font-bold shadow-2xs hover:bg-[#F3EDF7] active:scale-95 transition-all cursor-pointer select-none"
-            title="Upload multiple photos"
-          >
-            <Upload size={14} />
-            <span className="text-xs">Upload</span>
-          </button>
+            <button
+              type="button"
+              onClick={triggerUpload}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white dark:bg-[#1D192B] border border-[#CAC4D0] dark:border-[#44474F] text-[#1D1A22] dark:text-[#E6E0E9] text-xs font-bold shadow-2xs hover:bg-[#F3EDF7] active:scale-95 transition-all cursor-pointer select-none"
+              title="Upload multiple photos"
+            >
+              <Upload size={15} />
+              <span>Upload</span>
+            </button>
+          </div>
         </div>
       </div>
 

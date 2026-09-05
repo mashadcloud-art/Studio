@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { playNotificationChime } from './useChatNotifications'
+import { triggerNativeNotification } from '../lib/nativeNotifications'
 import { toTitleCase } from '../lib/utils'
 import { format } from 'date-fns'
 import toast from 'react-hot-toast'
@@ -77,18 +78,27 @@ export function useAvailableBookings() {
       const latest = newBookings[0]
       playNotificationChime()
       const svcNames = latest.services?.map(s => s.name).join(', ') || 'Service'
-      toast(`🔔 New Open Booking!\n${toTitleCase(latest.customer_name)} (${svcNames}) at ${latest.booking_time?.slice(0, 5)}`, {
+      const clientName = toTitleCase(latest.customer_name)
+      const bookingTime = latest.booking_time?.slice(0, 5) || ''
+
+      // Trigger native phone push notification
+      triggerNativeNotification(
+        '💅 New Booking Available!',
+        `${clientName} • ${svcNames} at ${bookingTime}`
+      )
+
+      toast(`🔔 New Open Booking!\n${clientName} (${svcNames}) at ${bookingTime}`, {
         duration: 7000,
-        position: 'top-right',
+        position: 'top-center',
         style: {
           background: '#1D192B',
           color: '#ffffff',
           fontWeight: '600',
           fontSize: '13px',
-          borderRadius: '14px',
+          borderRadius: '16px',
           border: '1px solid #6750A4',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-          padding: '12px 16px',
+          boxShadow: '0 8px 30px rgba(0,0,0,0.3)',
+          padding: '12px 18px',
         },
       })
     }

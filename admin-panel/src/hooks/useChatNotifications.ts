@@ -3,6 +3,7 @@ import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { toTitleCase } from '../lib/utils'
+import { triggerNativeNotification } from '../lib/nativeNotifications'
 import toast from 'react-hot-toast'
 
 // Synthesize a clean, luxury 2-tone chime using Web Audio API
@@ -113,17 +114,19 @@ export function useChatNotifications(isChatOpen: boolean) {
     ) {
       lastKnownMaxCreatedRef.current = unreadData.latestCreatedAt
       playNotificationChime()
-      toast(`💬 ${toTitleCase(unreadData.latestSender)}: "${unreadData.latestMessage}"`, {
+      const sender = toTitleCase(unreadData.latestSender)
+      triggerNativeNotification(`💬 ${sender} sent a message`, unreadData.latestMessage || 'New studio message')
+      toast(`💬 ${sender}: "${unreadData.latestMessage}"`, {
         duration: 5000,
-        position: 'top-right',
+        position: 'top-center',
         style: {
           background: '#21005D',
           color: '#ffffff',
           fontWeight: '600',
           fontSize: '13px',
-          borderRadius: '12px',
+          borderRadius: '16px',
           border: '1px solid #7F67BE',
-          boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
+          boxShadow: '0 8px 30px rgba(0,0,0,0.3)',
         },
       })
     }

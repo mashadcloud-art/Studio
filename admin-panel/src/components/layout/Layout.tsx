@@ -11,6 +11,7 @@ import { useChatNotifications } from '../../hooks/useChatNotifications'
 import { useAvailableBookings } from '../../hooks/useAvailableBookings'
 import { OvertimeApprovalsDrawer } from '../notifications/OvertimeApprovalsDrawer'
 import { useNotifications, unreadCount } from '../../hooks/useNotifications'
+import { initNativeNotifications } from '../../lib/nativeNotifications'
 
 // Routes that render their own full-bleed hero/header and don't want the generic mobile topbar.
 const NO_TOPBAR_ROUTES = ['/my-profile']
@@ -33,6 +34,11 @@ export function Layout() {
   const roleKey = effectiveAdmin ? 'admin' : staff?.role === 'receptionist' ? 'receptionist' : 'staff'
   const mobileNavItems = bottomNavItems[roleKey] ?? []
   const hideTopbar = NO_TOPBAR_ROUTES.includes(location.pathname)
+
+  // Request native push/device notifications on mount
+  useEffect(() => {
+    initNativeNotifications()
+  }, [])
 
   // Reset visibility when route changes
   useEffect(() => {
@@ -115,21 +121,21 @@ export function Layout() {
       <div className="flex-1 flex flex-col min-w-0 relative lg:overflow-hidden">
         {/* Impersonation Top Banner */}
         {isImpersonating && staff && (
-          <div className="bg-gradient-to-r from-[#4F378B] via-[#6750A4] to-[#7F67BE] text-white px-4 py-2.5 shadow-md flex items-center justify-between z-40 text-xs sm:text-sm font-medium border-b border-white/10 shrink-0">
-            <div className="flex items-center gap-2">
-              <span className="p-1 bg-white/20 rounded-md text-xs">👑</span>
-              <span>
-                <strong>Admin Mode:</strong> Logged in as{' '}
-                <span className="font-bold text-amber-300 capitalize">{toTitleCase(staff.name)}</span>{' '}
-                <span className="opacity-85 text-xs">({staff.role === 'receptionist' ? 'Receptionist' : 'Staff / Stylist'})</span>
+          <div className="bg-gradient-to-r from-[#4F378B] via-[#6750A4] to-[#7F67BE] text-white px-4 pt-[max(env(safe-area-inset-top),24px)] pb-3 shadow-lg flex items-center justify-between z-[100] text-xs sm:text-sm font-medium border-b border-white/10 shrink-0 sticky top-0">
+            <div className="flex items-center gap-2 min-w-0 pr-2">
+              <span className="p-1.5 bg-white/20 rounded-lg text-sm shrink-0">👑</span>
+              <span className="truncate">
+                <strong>Admin Mode:</strong> <span className="font-bold text-amber-300 capitalize">{toTitleCase(staff.name)}</span>{' '}
+                <span className="opacity-80 text-[11px] hidden sm:inline">({staff.role === 'receptionist' ? 'Receptionist' : 'Stylist'})</span>
               </span>
             </div>
             <button
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation()
                 exitStaffView()
                 navigate('/staff')
               }}
-              className="px-3 py-1 bg-white text-[#21005D] text-xs font-bold rounded-lg hover:bg-amber-100 transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+              className="px-3.5 py-2 bg-white text-[#21005D] text-xs font-black rounded-xl hover:bg-amber-100 transition-all shadow-md active:scale-95 flex items-center gap-1.5 shrink-0 cursor-pointer"
             >
               <span>✕</span> Exit Staff View
             </button>
@@ -214,16 +220,43 @@ export function Layout() {
       <OvertimeApprovalsDrawer isOpen={approvalsOpen} onClose={() => setApprovalsOpen(false)} />
 
       <Toaster
-        position="top-right"
+        position="top-center"
+        containerStyle={{
+          top: 48,
+        }}
         toastOptions={{
+          duration: 4000,
           style: {
-            borderRadius: '12px',
+            borderRadius: '16px',
             fontSize: '13px',
+            fontWeight: 600,
             fontFamily: 'Inter, sans-serif',
-            background: '#fff',
-            color: '#18181b',
-            border: '1px solid #e4e4e7',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+            background: 'rgba(29, 25, 43, 0.96)',
+            color: '#FFFFFF',
+            border: '1px solid rgba(232, 222, 248, 0.25)',
+            boxShadow: '0 12px 36px -4px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.2)',
+            backdropFilter: 'blur(16px)',
+            padding: '10px 18px',
+          },
+          success: {
+            iconTheme: {
+              primary: '#79DF84',
+              secondary: '#1D192B',
+            },
+            style: {
+              border: '1px solid rgba(121, 223, 132, 0.45)',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#FFB4AB',
+              secondary: '#690005',
+            },
+            style: {
+              background: 'rgba(43, 20, 25, 0.96)',
+              color: '#FFDAD6',
+              border: '1px solid rgba(255, 180, 171, 0.45)',
+            },
           },
         }}
       />

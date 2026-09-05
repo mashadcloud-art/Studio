@@ -23,7 +23,14 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
-  const [actualStaff, setActualStaff] = useState<Staff | null>(null)
+  const [actualStaff, setActualStaff] = useState<Staff | null>(() => {
+    try {
+      const saved = localStorage.getItem('nailuxe_cached_staff')
+      return saved ? JSON.parse(saved) : null
+    } catch {
+      return null
+    }
+  })
   const [impersonatedStaff, setImpersonatedStaff] = useState<Staff | null>(() => {
     try {
       const saved = localStorage.getItem('nailuxe_impersonated_staff')
@@ -46,6 +53,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .single()
     if (!error && data) {
       setActualStaff(data)
+      try {
+        localStorage.setItem('nailuxe_cached_staff', JSON.stringify(data))
+      } catch {
+        // ignore
+      }
     }
   }
 
@@ -75,13 +87,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
         setSession(session)
         setUser(session?.user ?? null)
         if (session?.user) {
           await fetchStaff(session.user.id)
-        } else {
+        } else if (event === 'SIGNED_OUT') {
           setActualStaff(null)
+          localStorage.removeItem('nailuxe_cached_staff')
           exitStaffView()
         }
         setLoading(false)
@@ -99,6 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signOut() {
     exitStaffView()
+    localStorage.removeItem('nailuxe_cached_staff')
     await supabase.auth.signOut()
     setActualStaff(null)
   }
