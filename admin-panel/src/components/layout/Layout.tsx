@@ -11,7 +11,7 @@ import { useChatNotifications } from '../../hooks/useChatNotifications'
 import { useAvailableBookings } from '../../hooks/useAvailableBookings'
 import { OvertimeApprovalsDrawer } from '../notifications/OvertimeApprovalsDrawer'
 import { useNotifications, unreadCount } from '../../hooks/useNotifications'
-import { initNativeNotifications } from '../../lib/nativeNotifications'
+import { initNativeNotifications, registerNotificationTapHandler } from '../../lib/nativeNotifications'
 
 // Routes that render their own full-bleed hero/header and don't want the generic mobile topbar.
 const NO_TOPBAR_ROUTES = ['/my-profile']
@@ -35,10 +35,19 @@ export function Layout() {
   const mobileNavItems = bottomNavItems[roleKey] ?? []
   const hideTopbar = NO_TOPBAR_ROUTES.includes(location.pathname)
 
-  // Request native push/device notifications on mount
+  // Request native push/device notifications on mount and register deep linking tap action
   useEffect(() => {
     initNativeNotifications()
-  }, [])
+    registerNotificationTapHandler(({ action, route }) => {
+      if (action === 'chat') {
+        setChatOpen(true)
+      } else if (action === 'overtime') {
+        setApprovalsOpen(true)
+      } else if (route) {
+        navigate(route)
+      }
+    })
+  }, [navigate])
 
   // Reset visibility when route changes
   useEffect(() => {
@@ -145,8 +154,11 @@ export function Layout() {
         {hideTopbar ? (
           <div className="lg:hidden absolute top-0 inset-x-0 z-30 flex items-center justify-between gap-3 px-4 pt-4">
             <button onClick={() => setSidebarOpen(true)} aria-label="Open menu"
-              className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md text-white flex items-center justify-center hover:bg-black/60 transition active:scale-95">
+              className="relative w-10 h-10 rounded-full bg-black/40 backdrop-blur-md text-white flex items-center justify-center hover:bg-black/60 transition active:scale-95 cursor-pointer">
               <Menu size={18} />
+              {(hasUnread || pendingApprovals > 0) && (
+                <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-[#E11D48] ring-2 ring-white dark:ring-[#1D192B] animate-pulse" />
+              )}
             </button>
             <div className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md text-white flex items-center justify-center">
               <ThemeToggle className="scale-[0.7]" />
@@ -155,8 +167,11 @@ export function Layout() {
         ) : (
           <div className="lg:hidden sticky top-0 z-30 flex items-center justify-between gap-3 px-4 pt-[calc(env(safe-area-inset-top,0px)+8px)] pb-2.5 bg-white dark:bg-[#1D192B] border-b border-[#E8DEF8]/70 dark:border-[#2B2930] shrink-0 transition-colors shadow-2xs">
             <div className="flex items-center gap-2.5">
-              <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-xl text-[#49454F] dark:text-[#CAC4D0] hover:bg-[#F3EDF7] dark:hover:bg-[#2B2930] transition active:scale-95">
-                <Menu size={19} />
+              <button onClick={() => setSidebarOpen(true)} className="relative p-2 rounded-xl text-[#49454F] dark:text-[#CAC4D0] hover:bg-[#F3EDF7] dark:hover:bg-[#2B2930] transition active:scale-95 cursor-pointer">
+                <Menu size={20} />
+                {(hasUnread || pendingApprovals > 0) && (
+                  <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-[#E11D48] ring-2 ring-white dark:ring-[#1D192B] animate-pulse" />
+                )}
               </button>
               <div className="flex items-center gap-2">
                 <img src="/logo.png" alt="Nailuxe" className="w-6 h-6 object-contain rounded-md shadow-2xs" />
@@ -222,7 +237,7 @@ export function Layout() {
       <Toaster
         position="top-center"
         containerStyle={{
-          top: 48,
+          top: 76,
         }}
         toastOptions={{
           duration: 4000,

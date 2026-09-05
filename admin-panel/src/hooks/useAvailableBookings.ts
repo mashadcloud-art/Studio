@@ -81,11 +81,13 @@ export function useAvailableBookings() {
       const clientName = toTitleCase(latest.customer_name)
       const bookingTime = latest.booking_time?.slice(0, 5) || ''
 
-      // Trigger native phone push notification
-      triggerNativeNotification(
-        '💅 New Booking Available!',
-        `${clientName} • ${svcNames} at ${bookingTime}`
-      )
+      // Trigger native phone push notification with direct tap navigation
+      triggerNativeNotification({
+        title: '💅 New Booking Available!',
+        body: `${clientName} • ${svcNames} at ${bookingTime}`,
+        action: 'navigate',
+        route: '/bookings',
+      })
 
       toast(`🔔 New Open Booking!\n${clientName} (${svcNames}) at ${bookingTime}`, {
         duration: 7000,

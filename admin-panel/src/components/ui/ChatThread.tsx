@@ -4,6 +4,7 @@ import { isToday, isYesterday, format } from 'date-fns'
 import { useStaffNotes, useSendStaffNote } from '../../hooks/useStaffNotes'
 import { uploadAudioToCloudinary } from '../../lib/cloudinary'
 import { VoiceRecorder } from './VoiceRecorder'
+import { supabase } from '../../lib/supabase'
 import toast from 'react-hot-toast'
 
 interface ChatThreadProps {
@@ -37,11 +38,46 @@ export function ChatThread({ staffId, currentSenderId, currentSenderRole, title,
   const sendNote = useSendStaffNote(staffId)
   const [text, setText] = useState('')
   const [uploadingVoice, setUploadingVoice] = useState(false)
+  const [isOtherTyping, setIsOtherTyping] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const broadcastChannelRef = useRef<any>(null)
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
-  }, [notes.length])
+  }, [notes.length, isOtherTyping])
+
+  // Realtime typing broadcast channel
+  useEffect(() => {
+    const channelName = `typing_${staffId}`
+    const channel = supabase.channel(channelName)
+    broadcastChannelRef.current = channel
+
+    channel
+      .on('broadcast', { event: 'typing' }, (payload: { payload?: { senderId?: string } }) => {
+        if (payload.payload?.senderId && payload.payload.senderId !== currentSenderId) {
+          setIsOtherTyping(true)
+          if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+          typingTimeoutRef.current = setTimeout(() => {
+            setIsOtherTyping(false)
+          }, 2500)
+        }
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [staffId, currentSenderId])
+
+  const notifyTyping = () => {
+    broadcastChannelRef.current?.send({
+      type: 'broadcast',
+      event: 'typing',
+      payload: { senderId: currentSenderId },
+    })
+  }
 
   const handleSendText = async () => {
     const trimmed = text.trim()
@@ -146,14 +182,33 @@ export function ChatThread({ staffId, currentSenderId, currentSenderRole, title,
                         )}
                       </div>
                     )}
-                    <p style={{ fontSize: 9, marginTop: 4, opacity: 0.55, textAlign: 'right' }}>
-                      {timeLabel(n.created_at)}
-                    </p>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4, marginTop: 4 }}>
+                      <span style={{ fontSize: 9, opacity: 0.65 }}>
+                        {timeLabel(n.created_at)}
+                      </span>
+                      {mine && (
+                        <span className="text-[#25D366] dark:text-[#4ADE80] font-black text-[12px] leading-none select-none tracking-tighter" title="Delivered & Seen">
+                          ✓✓
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
             )
           })
+        )}
+
+        {/* Realtime Typing Indicator */}
+        {isOtherTyping && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-[#2B2930] rounded-2xl w-fit shadow-2xs border border-[#E8DEF8] dark:border-[#382E48] animate-in fade-in my-1">
+            <span className="text-[11px] font-semibold text-[#6750A4] dark:text-[#D0BCFF]">typing</span>
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-[#6750A4] dark:bg-[#D0BCFF] rounded-full animate-bounce [animation-delay:-0.3s]" />
+              <span className="w-1.5 h-1.5 bg-[#6750A4] dark:bg-[#D0BCFF] rounded-full animate-bounce [animation-delay:-0.15s]" />
+              <span className="w-1.5 h-1.5 bg-[#6750A4] dark:bg-[#D0BCFF] rounded-full animate-bounce" />
+            </span>
+          </div>
         )}
       </div>
 
@@ -162,7 +217,10 @@ export function ChatThread({ staffId, currentSenderId, currentSenderRole, title,
         <input
           type="text"
           value={text}
-          onChange={e => setText(e.target.value)}
+          onChange={e => {
+            setText(e.target.value)
+            notifyTyping()
+          }}
           onKeyDown={e => { if (e.key === 'Enter') handleSendText() }}
           placeholder="Type a reply…"
           className="border border-[#CAC4D0] dark:border-[#44474F] bg-white dark:bg-[#2B2930] text-[#1D1A22] dark:text-[#E6E0E9]"

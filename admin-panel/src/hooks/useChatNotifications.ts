@@ -115,8 +115,13 @@ export function useChatNotifications(isChatOpen: boolean) {
       lastKnownMaxCreatedRef.current = unreadData.latestCreatedAt
       playNotificationChime()
       const sender = toTitleCase(unreadData.latestSender)
-      triggerNativeNotification(`💬 ${sender} sent a message`, unreadData.latestMessage || 'New studio message')
+      triggerNativeNotification({
+        title: `💬 ${sender}`,
+        body: unreadData.latestMessage || 'Sent a new message',
+        action: 'chat',
+      })
       toast(`💬 ${sender}: "${unreadData.latestMessage}"`, {
+        id: 'chat_message_toast',
         duration: 5000,
         position: 'top-center',
         style: {
@@ -159,14 +164,6 @@ export function useChatNotifications(isChatOpen: boolean) {
 
           qc.invalidateQueries({ queryKey: ['chat_unread_status'] })
           qc.invalidateQueries({ queryKey: ['staff_notes', newNote.staff_id] })
-
-          if (!isChatOpen) {
-            playNotificationChime()
-            toast(`💬 New message received!`, {
-              duration: 4000,
-              position: 'top-right',
-            })
-          }
         }
       )
       .subscribe()

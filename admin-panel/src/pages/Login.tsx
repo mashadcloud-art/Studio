@@ -1,10 +1,16 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, Fingerprint } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import {
+  isBiometricSupported,
+  isBiometricEnabled,
+  enableBiometricLogin,
+  authenticateWithBiometrics,
+} from '../lib/biometrics'
 
 const schema = z.object({
   email: z.string().min(1, 'Email required'),
@@ -17,23 +23,46 @@ export function Login() {
   const [showPass, setShowPass] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [loading, setLoading] = useState(false)
+  const [canBiometric, setCanBiometric] = useState(false)
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
   })
 
-  const onSubmit = async (data: FormData) => {
+  // Check if biometric is available and previously enabled on device
+  useEffect(() => {
+    isBiometricSupported().then(supported => {
+      if (supported) {
+        isBiometricEnabled().then(enabled => {
+          setCanBiometric(enabled)
+          if (enabled) {
+            // Automatically prompt fingerprint on app open if enabled!
+            handleBiometricLogin()
+          }
+        })
+      }
+    })
+  }, [])
+
+  const doSignIn = async (email: string, pass: string) => {
     setErrorMsg('')
     setLoading(true)
 
     try {
       const { data: authData, error } = await supabase.auth.signInWithPassword({
-        email: data.email.trim(),
-        password: data.password,
+        email: email.trim(),
+        password: pass,
       })
 
       if (error) { setErrorMsg(error.message); return }
       if (!authData?.user) { setErrorMsg('Login failed'); return }
+
+      // Save for future 1-tap fingerprint logins if supported
+      isBiometricSupported().then(supported => {
+        if (supported) {
+          enableBiometricLogin(email.trim(), pass)
+        }
+      })
 
       const { data: staff, error: staffError } = await supabase
         .from('staff')
@@ -55,6 +84,21 @@ export function Login() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleBiometricLogin = async () => {
+    try {
+      const creds = await authenticateWithBiometrics()
+      if (creds) {
+        await doSignIn(creds.email, creds.password)
+      }
+    } catch {
+      // biometric cancelled or dismissed by user
+    }
+  }
+
+  const onSubmit = async (data: FormData) => {
+    await doSignIn(data.email, data.password)
   }
 
   return (
@@ -138,6 +182,19 @@ export function Login() {
             {loading && <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />}
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
+
+          {/* Biometric Unlock Option */}
+          {canBiometric && (
+            <button
+              type="button"
+              onClick={handleBiometricLogin}
+              disabled={loading}
+              className="w-full py-3 bg-white/10 hover:bg-white/15 border border-[#9C6ADE]/40 text-[#EADDFF] text-sm font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98 shadow-sm"
+            >
+              <Fingerprint size={18} className="text-[#D0BCFF]" />
+              <span>Unlock with Fingerprint / Face ID</span>
+            </button>
+          )}
         </form>
 
         <p className="text-center text-[#8A7FA8] text-xs mt-8">© 2026 Nailuxe Studio Manager</p>
