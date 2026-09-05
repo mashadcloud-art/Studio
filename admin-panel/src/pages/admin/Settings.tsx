@@ -25,9 +25,9 @@ export function SettingsPage() {
   const [studioRadius, setStudioRadius] = useState('100')
 
   // In-app update settings
-  const [appLatestVersion, setAppLatestVersion] = useState(CURRENT_APP_VERSION)
-  const [appApkUrl, setAppApkUrl] = useState('')
-  const [appReleaseNotes, setAppReleaseNotes] = useState('Bug fixes and performance improvements.')
+  const [appLatestVersion, setAppLatestVersion] = useState('1.0.6')
+  const [appApkUrl, setAppApkUrl] = useState('https://github.com/mashadcloud-art/Studio/releases/download/v1.0.6/Nailuxe-Studio.apk')
+  const [appReleaseNotes, setAppReleaseNotes] = useState('WhatsApp-style chat bar, staff profile notifications setting & test, and 1-tap onboarding permissions prompt.')
   const [appForceUpdate, setAppForceUpdate] = useState(false)
 
   const [saving, setSaving] = useState(false)

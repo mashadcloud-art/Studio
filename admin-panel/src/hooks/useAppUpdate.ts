@@ -65,8 +65,8 @@ export function useAppUpdate() {
       })
 
       const latestVer = map['app_latest_version'] || CURRENT_APP_VERSION
-      const apkUrl = map['app_apk_url'] || 'https://github.com/mashadcloud-art/Studio/releases/download/latest/Nailuxe-Studio.apk'
-      const releaseNotes = map['app_release_notes'] || 'New performance enhancements and bug fixes.'
+      const apkUrl = map['app_apk_url'] || 'https://github.com/mashadcloud-art/Studio/releases/download/v1.0.6/Nailuxe-Studio.apk'
+      const releaseNotes = map['app_release_notes'] || 'WhatsApp-style chat bar, staff notifications, and 1-tap permissions.'
       const isForce = map['app_force_update'] === 'true'
 
       const hasUpdate = isNewerVersion(latestVer, CURRENT_APP_VERSION)
