@@ -12,6 +12,7 @@ import { useAvailableBookings } from '../../hooks/useAvailableBookings'
 import { OvertimeApprovalsDrawer } from '../notifications/OvertimeApprovalsDrawer'
 import { useNotifications, unreadCount } from '../../hooks/useNotifications'
 import { initNativeNotifications, registerNotificationTapHandler } from '../../lib/nativeNotifications'
+import { UpdateModal } from '../common/UpdateModal'
 
 // Routes that render their own full-bleed hero/header and don't want the generic mobile topbar.
 const NO_TOPBAR_ROUTES = ['/my-profile']
@@ -275,6 +276,7 @@ export function Layout() {
           },
         }}
       />
+      <UpdateModal />
     </div>
   )
 }
