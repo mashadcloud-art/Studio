@@ -116,23 +116,37 @@ export async function sendFcmPushNotification(params: {
   try {
     const tokens: string[] = []
 
-    // 1. Look up recipient's FCM token from Supabase settings
+    // 1. Look up recipient's FCM token from Supabase
     if (params.targetStaffId) {
+      // 1a. Check staff table address
+      try {
+        const { data: staffRow } = await db
+          .from('staff')
+          .select('address')
+          .eq('id', params.targetStaffId)
+          .maybeSingle()
+        if (staffRow?.address && staffRow.address.includes('[fcm]:')) {
+          const tok = staffRow.address.replace('[fcm]:', '').trim()
+          if (tok && !tokens.includes(tok)) tokens.push(tok)
+        }
+      } catch {}
+
+      // 1b. Check settings table
       const { data: settingRow } = await db
         .from('settings')
         .select('value')
         .eq('key', `fcm_token_${params.targetStaffId}`)
-        .single()
+        .maybeSingle()
       if (settingRow?.value && !tokens.includes(settingRow.value)) tokens.push(settingRow.value)
 
       const { data: adminRow } = await db
         .from('settings')
         .select('value')
         .eq('key', `fcm_token_admin_${params.targetStaffId}`)
-        .single()
+        .maybeSingle()
       if (adminRow?.value && !tokens.includes(adminRow.value)) tokens.push(adminRow.value)
 
-      // Check staff_notes for staff token
+      // 1c. Check staff_notes for staff token
       try {
         const { data: noteRow } = await db
           .from('staff_notes')
@@ -157,7 +171,7 @@ export async function sendFcmPushNotification(params: {
         .from('settings')
         .select('value')
         .eq('key', 'fcm_token_admin')
-        .single()
+        .maybeSingle()
       if (globalAdmin?.value && !tokens.includes(globalAdmin.value)) tokens.push(globalAdmin.value)
 
       // 1b. Check all keys like 'fcm_token_admin%'
@@ -171,10 +185,16 @@ export async function sendFcmPushNotification(params: {
         })
       }
 
-      // 1c. Find all admin staff members and check their fcm_token_${id}
+      // 1c. Find all admin staff members and check their fcm_token_${id} or address
       try {
-        const { data: adminStaff } = await db.from('staff').select('id').eq('role', 'admin')
+        const { data: adminStaff } = await db.from('staff').select('id, address').eq('role', 'admin')
         if (adminStaff && adminStaff.length > 0) {
+          adminStaff.forEach((s: { id: string; address?: string }) => {
+            if (s.address && s.address.includes('[fcm]:')) {
+              const tok = s.address.replace('[fcm]:', '').trim()
+              if (tok && !tokens.includes(tok)) tokens.push(tok)
+            }
+          })
           const keys = adminStaff.map((s: { id: string }) => `fcm_token_${s.id}`)
           const { data: staffTokenRows } = await db.from('settings').select('value').in('key', keys)
           if (staffTokenRows) {
@@ -202,8 +222,15 @@ export async function sendFcmPushNotification(params: {
       // ignore
     }
 
-    // If sender's own token is saved locally, exclude it unless it's a test notification
+    // If sender's own token is saved locally, handle test mode and fallback
     const myToken = typeof window !== 'undefined' ? localStorage.getItem('nailuxe_fcm_token') : null
+
+    if (myToken && (params.data?.isTest || tokens.length === 0)) {
+      if (!tokens.includes(myToken)) {
+        tokens.push(myToken)
+      }
+    }
+
     const finalTokens = (!params.data?.isTest && myToken && tokens.length > 1)
       ? tokens.filter((t) => t !== myToken)
       : tokens
@@ -246,7 +273,6 @@ export async function sendFcmPushNotification(params: {
                 },
                 data: {
                   ...(params.data || {}),
-                  click_action: 'FLUTTER_NOTIFICATION_CLICK',
                 },
               },
             }),

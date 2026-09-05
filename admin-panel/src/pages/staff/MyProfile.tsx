@@ -1,9 +1,9 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import {
-  Phone, Sparkles, Search, CalendarCheck, User, TrendingUp, NotebookPen, ChevronRight, Camera, Bell, CheckCircle2, RefreshCw, Settings
+  Phone, Sparkles, Search, CalendarCheck, User, TrendingUp, NotebookPen, ChevronRight, Camera, Settings
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useStaffMonthlyReport } from '../../hooks/useReports'
@@ -13,8 +13,6 @@ import { useAvailableBookings } from '../../hooks/useAvailableBookings'
 import { supabase } from '../../lib/supabase'
 import { formatCurrency } from '../../lib/utils'
 import { cn } from '../../lib/utils'
-import { Capacitor } from '@capacitor/core'
-import { dispatchPushNotification, initPushNotifications } from '../../lib/pushNotifications'
 import { StaffSettingsModal } from '../../components/staff/StaffSettingsModal'
 import toast from 'react-hot-toast'
 
@@ -34,47 +32,6 @@ export function MyProfile() {
   const [savingExpert, setSavingExpert] = useState(false)
   const { availableCount } = useAvailableBookings()
   const [showStaffSettings, setShowStaffSettings] = useState(false)
-
-  const [sendingTestPush, setSendingTestPush] = useState(false)
-  const [refreshingFcm, setRefreshingFcm] = useState(false)
-  const fcmToken = typeof window !== 'undefined' ? localStorage.getItem('nailuxe_fcm_token') : null
-
-  const handleTestNotification = async () => {
-    if (!staff?.id) return
-    setSendingTestPush(true)
-    toast.success('Test alert scheduled in 3s! Lock your phone or exit app NOW to see it arrive.', {
-      duration: 4000,
-    })
-
-    setTimeout(async () => {
-      try {
-        await dispatchPushNotification({
-          targetStaffId: staff.id,
-          title: '🔔 Nailuxe Staff Alert',
-          body: 'Success! Your staff device received this notification with the app closed.',
-          data: { isTest: 'true', action: 'chat' },
-        })
-        toast.success('Background test push sent!')
-      } catch (err: any) {
-        toast.error('Failed to dispatch notification: ' + err.message)
-      } finally {
-        setSendingTestPush(false)
-      }
-    }, 3000)
-  }
-
-  const handleEnableNotifications = async () => {
-    if (!staff?.id) return
-    setRefreshingFcm(true)
-    try {
-      await initPushNotifications(staff.id)
-      toast.success('Notifications enabled & registered with Google FCM!')
-    } catch (err: any) {
-      toast.error('Failed to enable: ' + err.message)
-    } finally {
-      setRefreshingFcm(false)
-    }
-  }
 
   const todayStr = format(new Date(), 'yyyy-MM-dd')
   const { data: bookingsCount = 0 } = useQuery({
@@ -160,13 +117,17 @@ export function MyProfile() {
   }
 
   const lastNote = notes[notes.length - 1]
-  const notesSubtitle = !lastNote
-    ? 'No messages yet'
-    : lastNote.voice_url && !lastNote.message
-      ? '🎤 Voice message'
-      : (lastNote.message ?? '').length > 42
-        ? `${lastNote.message!.slice(0, 42)}…`
-        : lastNote.message
+  const formatNoteSnippet = (msg?: string | null, voiceUrl?: string | null) => {
+    if (voiceUrl && !msg) return '🎤 Voice message'
+    if (!msg) return 'No messages yet'
+    const trimmed = msg.trim()
+    if (trimmed.startsWith('[video]') || trimmed.includes('/video/upload/')) return '🎥 Video'
+    if (trimmed.startsWith('[image]') || (trimmed.includes('cloudinary.com') && !trimmed.includes('/video/'))) return '📷 Photo'
+    if (trimmed.startsWith('🎤') || trimmed.includes('/audio/upload/')) return '🎤 Voice note'
+    if (trimmed.length > 32) return `${trimmed.slice(0, 32)}…`
+    return trimmed
+  }
+  const notesSubtitle = formatNoteSnippet(lastNote?.message, lastNote?.voice_url)
 
   const blocks: { key: string; label: string; subtitle: string; icon: ReactNode; accent: string; accentDark: string; bg: string; bgDark: string; path: string }[] = [
     {
@@ -191,7 +152,7 @@ export function MyProfile() {
     },
     {
       key: 'notes', label: 'Notes',
-      subtitle: notesSubtitle ?? 'No messages yet',
+      subtitle: notesSubtitle,
       icon: <NotebookPen size={19} />, accent: '#21005D', accentDark: '#EADDFF', bg: '#EADDFF', bgDark: '#4F378B',
       path: '/my-profile/notes',
     },
@@ -246,7 +207,7 @@ export function MyProfile() {
     <>
       {/* ───────── MOBILE — immersive hero header (Layout suppresses its own topbar for /my-profile) ───────── */}
       <div className="lg:hidden">
-        <div className="relative w-full h-[300px] sm:h-[340px] bg-[#1D192B] overflow-hidden">
+        <div className="relative w-full h-[330px] sm:h-[360px] bg-[#1D192B] overflow-hidden">
           <div className="absolute inset-0">
             {staff.avatar_url ? (
               <img src={staff.avatar_url} alt={staff.name} className="w-full h-full object-cover object-top opacity-80" />
@@ -258,14 +219,14 @@ export function MyProfile() {
             <div className="absolute inset-0 bg-gradient-to-t from-[#FEF7FF] dark:from-[#141218] via-black/35 to-black/55" />
           </div>
 
-          <div className="relative z-10 h-full flex flex-col justify-end px-5 pb-6 pt-16">
+          <div className="relative z-10 h-full flex flex-col justify-end px-5 pb-6 pt-[max(env(safe-area-inset-top,0px)+56px,74px)]">
             <div className="flex items-center justify-between mb-3">
-              <span className="px-3.5 py-1 bg-white/20 backdrop-blur-md text-white text-[11px] font-bold rounded-full flex items-center gap-1.5">
+              <span className="px-3.5 py-1 bg-white/20 backdrop-blur-md text-white text-[11px] font-bold rounded-full flex items-center gap-1.5 shadow-sm">
                 <span className={cn('w-2 h-2 rounded-full', isOnline ? 'bg-[#79DF84] animate-pulse' : 'bg-white/50')} />
                 {isOnline ? 'ONLINE (CHECKED IN)' : 'OFFLINE'}
               </span>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-mono text-white/90 bg-black/40 backdrop-blur-md px-3.5 py-1 rounded-full flex items-center gap-1.5">
+                <span className="text-xs font-mono text-white/90 bg-black/40 backdrop-blur-md px-3.5 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
                   <Phone size={11} /> {staff.phone}
                 </span>
                 <button
@@ -374,51 +335,6 @@ export function MyProfile() {
                   </div>
                 </button>
               ))}
-            </div>
-          </div>
-
-          {/* Push Notification System Card for Staff */}
-          <div className="bg-[#F3EDF7] dark:bg-[#2B2930] p-4 rounded-2xl border border-[#E6E0E9] dark:border-[#44474F] space-y-3 shadow-2xs">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-[#6750A4] dark:bg-[#D0BCFF] text-white dark:text-[#381E72] flex items-center justify-center shrink-0">
-                  <Bell size={16} />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-[#1D1A22] dark:text-[#E6E0E9]">Push Notifications</h4>
-                  <p className="text-[10px] text-[#49454F] dark:text-[#CAC4D0]">Background Alerts & Owner Messages</p>
-                </div>
-              </div>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                <CheckCircle2 size={11} />
-                {Capacitor.isNativePlatform() ? 'Connected' : 'Web Mode'}
-              </span>
-            </div>
-
-            <p className="text-[11px] text-[#79747E] dark:text-[#938F99] leading-relaxed">
-              Google Firebase Cloud Messaging alerts you instantly when the owner sends a note or client books with you, even when the app is completely closed.
-            </p>
-
-            <div className="flex items-center gap-2 pt-1">
-              <button
-                type="button"
-                onClick={handleTestNotification}
-                disabled={sendingTestPush}
-                className="flex-1 py-2 px-3 rounded-xl bg-[#6750A4] text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition cursor-pointer disabled:opacity-50"
-              >
-                <Bell size={13} />
-                <span>{sendingTestPush ? 'Queued (3s)...' : 'Test Alert (3s)'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleEnableNotifications}
-                disabled={refreshingFcm}
-                className="py-2 px-3 rounded-xl bg-white dark:bg-[#1D192B] border border-[#E8DEF8] dark:border-[#382E48] text-[#1D1A22] dark:text-[#E6E0E9] text-xs font-semibold flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer"
-                title="Re-sync notifications permission"
-              >
-                <RefreshCw size={13} className={refreshingFcm ? 'animate-spin' : ''} />
-                <span>Enable / Re-sync</span>
-              </button>
             </div>
           </div>
         </div>

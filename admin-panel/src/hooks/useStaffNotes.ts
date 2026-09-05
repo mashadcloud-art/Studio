@@ -58,6 +58,7 @@ export function useSendStaffNote(staffId: string | undefined) {
     mutationFn: async (params: {
       senderId: string
       senderRole: 'admin' | 'staff'
+      senderName?: string
       message?: string
       voiceUrl?: string
       voiceDuration?: number
@@ -82,7 +83,7 @@ export function useSendStaffNote(staffId: string | undefined) {
       dispatchPushNotification({
         targetStaffId: isFromAdmin ? staffId : undefined,
         targetRole: isFromAdmin ? undefined : 'admin',
-        title: isFromAdmin ? '💬 Studio Owner' : '💬 Staff Message',
+        title: isFromAdmin ? '💬 Studio Owner' : (params.senderName ? `💬 ${params.senderName}` : '💬 Staff Message'),
         body: params.message?.startsWith('[image]')
           ? '📷 Photo'
           : params.message?.startsWith('[video]')

@@ -51,20 +51,31 @@ export async function initPushNotifications(userId: string) {
       }
     }
 
-    // 3. Remove any previous listeners to prevent duplicates
+    // 3. Sync existing token if already stored on device
+    const existingToken = localStorage.getItem('nailuxe_fcm_token')
+    if (existingToken) {
+      db.from('staff').update({ address: `[fcm]:${existingToken}` }).eq('id', userId).catch(() => {})
+    }
+
+    // 4. Remove any previous listeners to prevent duplicates
     await PushNotifications.removeAllListeners()
 
-    // 4. Attach registration listener BEFORE triggering registration
+    // 5. Attach registration listener BEFORE triggering registration
     await PushNotifications.addListener('registration', async (token: Token) => {
       console.log('FCM Registration Success! Token:', token.value)
       try {
         localStorage.setItem('nailuxe_fcm_token', token.value)
         localStorage.setItem('nailuxe_fcm_registered_at', new Date().toISOString())
 
-        const { data: staffData } = await db.from('staff').select('role').eq('id', userId).single()
+        const { data: staffData } = await db.from('staff').select('role').eq('id', userId).maybeSingle()
         const isUserAdmin = staffData?.role === 'admin'
 
-        // 1. Save into staff_notes (works under staff RLS without needing admin permissions!)
+        // 1. Save directly into staff table under address (works reliably under staff RLS: auth.uid() = id)
+        await db.from('staff').update({
+          address: `[fcm]:${token.value}`
+        }).eq('id', userId).catch((e: any) => console.warn('staff address fcm update error:', e))
+
+        // 2. Save into staff_notes (works under staff RLS without needing admin permissions!)
         await db.from('staff_notes').insert({
           staff_id: userId,
           sender_id: userId,
@@ -72,7 +83,7 @@ export async function initPushNotifications(userId: string) {
           message: `[fcm_token]:${token.value}`,
         }).catch((e: any) => console.warn('staff_notes token insert error:', e))
 
-        // 2. Save to settings table (succeeds for admin)
+        // 3. Save to settings table (succeeds for admin)
         if (isUserAdmin) {
           await db.from('settings').upsert({
             key: `fcm_token_${userId}`,
@@ -94,7 +105,7 @@ export async function initPushNotifications(userId: string) {
       }
     })
 
-    // 5. Register with Google FCM
+    // 6. Register with Google FCM
     await PushNotifications.register()
 
     // 5. On registration error

@@ -137,12 +137,19 @@ export function ChatThread({ staffId, staffName: propStaffName, currentSenderId,
     }
   }
 
+  const senderDisplayName = currentSenderRole === 'staff' ? staffName : 'Studio Owner'
+
   const handleSendText = async () => {
     const trimmed = text.trim()
     if (!trimmed) return
     setText('')
     try {
-      await sendNote.mutateAsync({ senderId: currentSenderId, senderRole: currentSenderRole, message: trimmed })
+      await sendNote.mutateAsync({
+        senderId: currentSenderId,
+        senderRole: currentSenderRole,
+        senderName: senderDisplayName,
+        message: trimmed,
+      })
     } catch (e: unknown) {
       toast.error((e as Error).message)
       setText(trimmed)
@@ -154,8 +161,11 @@ export function ChatThread({ staffId, staffName: propStaffName, currentSenderId,
     try {
       const result = await uploadAudioToCloudinary(blob)
       await sendNote.mutateAsync({
-        senderId: currentSenderId, senderRole: currentSenderRole,
-        voiceUrl: result.secure_url, voiceDuration: durationSeconds,
+        senderId: currentSenderId,
+        senderRole: currentSenderRole,
+        senderName: senderDisplayName,
+        voiceUrl: result.secure_url,
+        voiceDuration: durationSeconds,
       })
     } catch (e: unknown) {
       toast.error((e as Error).message)
@@ -173,6 +183,7 @@ export function ChatThread({ staffId, staffName: propStaffName, currentSenderId,
       await sendNote.mutateAsync({
         senderId: currentSenderId,
         senderRole: currentSenderRole,
+        senderName: senderDisplayName,
         message: `${tag}${result.secure_url}`,
       })
       toast.success(isVideo ? 'Video sent' : 'Image sent', { id: toastId })

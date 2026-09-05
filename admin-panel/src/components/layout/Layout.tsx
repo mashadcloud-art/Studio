@@ -166,22 +166,22 @@ export function Layout() {
             </button>
           </div>
         )}
-        {/* Mobile topbar: sticky at top with pure white/dark background matching status bar */}
+        {/* Mobile topbar: lowered safely below Android status bar and punch-hole notch */}
         {hideTopbar ? (
-          <div className="lg:hidden absolute top-0 inset-x-0 z-30 flex items-center justify-between gap-3 px-4 pt-4">
+          <div className="lg:hidden absolute top-0 inset-x-0 z-30 flex items-center justify-between gap-3 px-4 pt-[max(env(safe-area-inset-top,0px)+12px,48px)] pointer-events-none">
             <button onClick={() => setSidebarOpen(true)} aria-label="Open menu"
-              className="relative w-10 h-10 rounded-full bg-black/40 backdrop-blur-md text-white flex items-center justify-center hover:bg-black/60 transition active:scale-95 cursor-pointer">
+              className="pointer-events-auto relative w-10 h-10 rounded-full bg-black/45 backdrop-blur-md text-white flex items-center justify-center hover:bg-black/60 transition active:scale-95 cursor-pointer shadow-md">
               <Menu size={18} />
               {(hasUnread || pendingApprovals > 0) && (
                 <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-[#E11D48] ring-2 ring-white dark:ring-[#1D192B] animate-pulse" />
               )}
             </button>
-            <div className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md text-white flex items-center justify-center">
+            <div className="pointer-events-auto w-10 h-10 rounded-full bg-black/45 backdrop-blur-md text-white flex items-center justify-center shadow-md">
               <ThemeToggle className="scale-[0.7]" />
             </div>
           </div>
         ) : (
-          <div className="lg:hidden sticky top-0 z-30 flex items-center justify-between gap-3 px-4 pt-[calc(env(safe-area-inset-top,0px)+8px)] pb-2.5 bg-white dark:bg-[#1D192B] border-b border-[#E8DEF8]/70 dark:border-[#2B2930] shrink-0 transition-colors shadow-2xs">
+          <div className="lg:hidden sticky top-0 z-30 flex items-center justify-between gap-3 px-4 pt-[max(env(safe-area-inset-top,0px)+8px,38px)] pb-2.5 bg-white dark:bg-[#1D192B] border-b border-[#E8DEF8]/70 dark:border-[#2B2930] shrink-0 transition-colors shadow-2xs">
             <div className="flex items-center gap-2.5">
               <button onClick={() => setSidebarOpen(true)} className="relative p-2 rounded-xl text-[#49454F] dark:text-[#CAC4D0] hover:bg-[#F3EDF7] dark:hover:bg-[#2B2930] transition active:scale-95 cursor-pointer">
                 <Menu size={20} />
