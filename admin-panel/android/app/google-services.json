@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "123215575278",
+    "project_id": "mystudio-88473",
+    "storage_bucket": "mystudio-88473.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:123215575278:android:81608caa63f9115e035bff",
+        "android_client_info": {
+          "package_name": "com.nailuxe.studio"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDfjuYVcZNqX9Nc068RNg-4wPTIurqo1ho"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

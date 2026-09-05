@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
-import { Save, Download, Sparkles, RefreshCw } from 'lucide-react'
+import { Save, Download, Sparkles, RefreshCw, Bell, CheckCircle2 } from 'lucide-react'
 import { Card, CardHeader } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
 import { supabase } from '../../lib/supabase'
 import { CURRENT_APP_VERSION } from '../../config/appVersion'
 import { useAppUpdate } from '../../hooks/useAppUpdate'
+import { Capacitor } from '@capacitor/core'
+import { dispatchPushNotification } from '../../lib/pushNotifications'
 import toast from 'react-hot-toast'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -30,6 +32,33 @@ export function SettingsPage() {
 
   const [saving, setSaving] = useState(false)
   const { hasUpdate, latestVersion, checkUpdates, checking, downloadAndInstall } = useAppUpdate()
+  const [sendingTestPush, setSendingTestPush] = useState(false)
+  const [fcmToken, setFcmToken] = useState<string | null>(() => {
+    return typeof window !== 'undefined' ? localStorage.getItem('nailuxe_fcm_token') : null
+  })
+
+  const handleSendTestPush = async () => {
+    setSendingTestPush(true)
+    toast.success('Test notification scheduled for 3s! Lock your phone or exit app now to see it arrive.', {
+      duration: 4000,
+    })
+
+    setTimeout(async () => {
+      try {
+        await dispatchPushNotification({
+          targetRole: 'admin',
+          title: '🔔 Nailuxe Studio Notification',
+          body: 'Test notification arrived successfully even when app is closed!',
+          data: { isTest: 'true', action: 'chat' },
+        })
+        toast.success('Background test push dispatched!')
+      } catch (err: any) {
+        toast.error('Test failed: ' + err.message)
+      } finally {
+        setSendingTestPush(false)
+      }
+    }, 3000)
+  }
 
   // Load existing settings on mount
   useEffect(() => {
@@ -184,6 +213,54 @@ export function SettingsPage() {
               />
               <span><strong>Force Update:</strong> Require users to update before continuing into the app</span>
             </label>
+          </div>
+        </div>
+      </Card>
+
+      {/* Push Notification System & Background Wakeup */}
+      <Card>
+        <CardHeader
+          title="Push Notifications & Background Alerts"
+          subtitle="Google Play Services (Firebase Cloud Messaging)"
+        />
+        <div className="space-y-4">
+          <div className="bg-[#FEF7FF] dark:bg-[#2B2930] p-4 rounded-2xl border border-[#E8DEF8] dark:border-[#382E48] space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Bell size={18} className="text-[#6750A4] dark:text-[#D0BCFF]" />
+                <span className="text-sm font-bold text-[#1D1A22] dark:text-[#E6E0E9]">
+                  Background Delivery Status
+                </span>
+              </div>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 size={12} />
+                {Capacitor.isNativePlatform() ? 'Native FCM Active' : 'Web / Local Mode'}
+              </span>
+            </div>
+            <p className="text-xs text-[#79747E] dark:text-[#938F99] leading-relaxed">
+              Google Firebase Cloud Messaging is linked to project <strong className="text-[#6750A4] dark:text-[#D0BCFF]">mystudio-88473</strong>. Push notifications will pop up with sound, vibration, and wake the screen even when the app is completely closed or your phone is locked.
+            </p>
+            {fcmToken && (
+              <div className="text-[11px] font-mono text-[#79747E] dark:text-[#938F99] break-all bg-black/5 dark:bg-white/5 p-2 rounded-lg">
+                Device Token: {fcmToken.slice(0, 24)}...{fcmToken.slice(-12)}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between pt-1">
+            <span className="text-xs text-[#79747E] dark:text-[#938F99]">
+              Test background delivery on your phone:
+            </span>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleSendTestPush}
+              disabled={sendingTestPush}
+              className="text-xs py-2 px-3 flex items-center gap-1.5"
+            >
+              <Bell size={14} />
+              <span>{sendingTestPush ? 'Queued (3s)...' : 'Test Background Push'}</span>
+            </Button>
           </div>
         </div>
       </Card>

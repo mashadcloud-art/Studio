@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
-import { Send, NotebookPen } from 'lucide-react'
+import { Send, NotebookPen, Trash2 } from 'lucide-react'
 import { isToday, isYesterday, format } from 'date-fns'
 import { useStaffNotes, useSendStaffNote } from '../../hooks/useStaffNotes'
 import { uploadAudioToCloudinary } from '../../lib/cloudinary'
 import { VoiceRecorder } from './VoiceRecorder'
 import { supabase } from '../../lib/supabase'
+import { useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = supabase as any
 
 interface ChatThreadProps {
   staffId: string
@@ -34,6 +38,7 @@ function fmtDuration(s: number | null) {
 }
 
 export function ChatThread({ staffId, currentSenderId, currentSenderRole, title, emptyLabel, height = 380 }: ChatThreadProps) {
+  const qc = useQueryClient()
   const { data: notes = [], isLoading } = useStaffNotes(staffId)
   const sendNote = useSendStaffNote(staffId)
   const [text, setText] = useState('')
@@ -48,7 +53,7 @@ export function ChatThread({ staffId, currentSenderId, currentSenderRole, title,
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [notes.length, isOtherTyping])
 
-  // Realtime typing broadcast channel
+  // Realtime typing and deletion broadcast channel
   useEffect(() => {
     const channelName = `typing_${staffId}`
     const channel = supabase.channel(channelName)
@@ -64,12 +69,18 @@ export function ChatThread({ staffId, currentSenderId, currentSenderRole, title,
           }, 2500)
         }
       })
+      .on('broadcast', { event: 'message_deleted' }, () => {
+        qc.invalidateQueries({ queryKey: ['staff_notes', staffId] })
+      })
+      .on('broadcast', { event: 'chat_cleared' }, () => {
+        qc.invalidateQueries({ queryKey: ['staff_notes', staffId] })
+      })
       .subscribe()
 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [staffId, currentSenderId])
+  }, [staffId, currentSenderId, qc])
 
   const notifyTyping = () => {
     broadcastChannelRef.current?.send({
@@ -77,6 +88,40 @@ export function ChatThread({ staffId, currentSenderId, currentSenderRole, title,
       event: 'typing',
       payload: { senderId: currentSenderId },
     })
+  }
+
+  const handleDeleteMessage = async (noteId: string) => {
+    if (!window.confirm('Delete this message?')) return
+    try {
+      const { error } = await db.from('staff_notes').delete().eq('id', noteId)
+      if (error) throw error
+      qc.invalidateQueries({ queryKey: ['staff_notes', staffId] })
+      broadcastChannelRef.current?.send({
+        type: 'broadcast',
+        event: 'message_deleted',
+        payload: { noteId },
+      })
+      toast.success('Message deleted')
+    } catch (e: any) {
+      toast.error('Failed to delete: ' + e.message)
+    }
+  }
+
+  const handleClearChat = async () => {
+    if (!window.confirm('Clear entire chat history with this staff member?')) return
+    try {
+      const { error } = await db.from('staff_notes').delete().eq('staff_id', staffId)
+      if (error) throw error
+      qc.invalidateQueries({ queryKey: ['staff_notes', staffId] })
+      broadcastChannelRef.current?.send({
+        type: 'broadcast',
+        event: 'chat_cleared',
+        payload: { staffId },
+      })
+      toast.success('Chat cleared')
+    } catch (e: any) {
+      toast.error('Failed to clear chat: ' + e.message)
+    }
   }
 
   const handleSendText = async () => {
@@ -110,12 +155,24 @@ export function ChatThread({ staffId, currentSenderId, currentSenderRole, title,
       className="flex flex-col h-full rounded-2xl border border-[#E8DEF8] dark:border-[#382E48] bg-white dark:bg-[#1D192B] overflow-hidden shadow-sm"
       style={{ height: height === '100%' ? '100%' : undefined }}
     >
-      {title && (
-        <div className="shrink-0 flex items-center gap-[7px] px-3.5 py-2.5 border-b border-[#F3EDF7] dark:border-[#2B2930] bg-[#F3EDF7]/50 dark:bg-[#2B2930]/50">
+      {/* Chat Thread Header with Clear Chat Option */}
+      <div className="shrink-0 flex items-center justify-between px-3.5 py-2.5 border-b border-[#F3EDF7] dark:border-[#2B2930] bg-[#F3EDF7]/50 dark:bg-[#2B2930]/50">
+        <div className="flex items-center gap-[7px]">
           <NotebookPen size={14} className="text-[#79747E] dark:text-[#938F99]" />
-          <span className="text-xs font-bold text-[#1D1A22] dark:text-[#E6E0E9]">{title}</span>
+          <span className="text-xs font-bold text-[#1D1A22] dark:text-[#E6E0E9]">{title || 'Messages'}</span>
         </div>
-      )}
+        {notes.length > 0 && (
+          <button
+            type="button"
+            onClick={handleClearChat}
+            className="text-[11px] font-semibold text-red-500 hover:text-red-600 flex items-center gap-1 py-1 px-2.5 rounded-lg hover:bg-red-500/10 transition-colors cursor-pointer"
+            title="Clear all messages in this conversation"
+          >
+            <Trash2 size={12} />
+            <span>Clear Chat</span>
+          </button>
+        )}
+      </div>
 
       <div
         ref={scrollRef}
@@ -185,7 +242,7 @@ export function ChatThread({ staffId, currentSenderId, currentSenderRole, title,
                         )}
                       </div>
                     )}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4, marginTop: 4 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, marginTop: 4 }}>
                       <span style={{ fontSize: 9, opacity: 0.65 }}>
                         {timeLabel(n.created_at)}
                       </span>
@@ -193,6 +250,23 @@ export function ChatThread({ staffId, currentSenderId, currentSenderRole, title,
                         <span className="text-[#25D366] dark:text-[#4ADE80] font-black text-[12px] leading-none select-none tracking-tighter" title="Delivered & Seen">
                           ✓✓
                         </span>
+                      )}
+                      {(mine || currentSenderRole === 'admin') && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteMessage(n.id)
+                          }}
+                          className={`p-1 -mr-1 rounded transition-colors cursor-pointer ${
+                            mine
+                              ? 'text-white/70 hover:text-white hover:bg-white/20'
+                              : 'text-[#79747E] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30'
+                          }`}
+                          title="Delete message"
+                        >
+                          <Trash2 size={11} />
+                        </button>
                       )}
                     </div>
                   </div>
