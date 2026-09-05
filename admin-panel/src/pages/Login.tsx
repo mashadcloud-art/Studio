@@ -31,8 +31,15 @@ export function Login() {
   const [autoLogin, setAutoLogin] = useState(true)
   const [savedEmailDetected, setSavedEmailDetected] = useState<string | null>(null)
 
+  const defaultEmail = typeof window !== 'undefined' ? localStorage.getItem('nailuxe_saved_email') || '' : ''
+  const defaultPass = typeof window !== 'undefined' ? localStorage.getItem('nailuxe_saved_password') || '' : ''
+
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
+    defaultValues: {
+      email: defaultEmail,
+      password: defaultPass,
+    },
   })
 
   // 1. If user is ALREADY logged in from previous session, skip login immediately!
