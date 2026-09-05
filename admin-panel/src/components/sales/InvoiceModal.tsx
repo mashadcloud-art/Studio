@@ -431,28 +431,9 @@ Panampilly Nagar, Kochi | +91 98407 00734`
   return (
     <Modal open={open} onClose={onClose} title={`Invoice #${sale.invoiceNumber}`} size="lg">
       <div className="space-y-6">
-        {/* Ultra-Premium Icon-Only Action Toolbar */}
-        <div className="flex items-center justify-between gap-2 p-2 sm:p-2.5 bg-gradient-to-r from-[#F7F5FA] to-[#F1EDF7] dark:from-[#1E1B2E] dark:to-[#242036] rounded-2xl border border-[#E8DEF8] dark:border-[#382E48] shadow-xs">
-          {/* Payment Status with GPay / Cash and Tick Mark */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black bg-white dark:bg-[#2B2930] text-[#1D1A22] dark:text-[#E6E0E9] border border-[#E0D6ED] dark:border-[#3E384D] shadow-2xs">
-              <span className="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] font-black shrink-0 shadow-xs">✓</span>
-              {isGpay ? (
-                <span className="flex items-center font-black tracking-tight text-[11px] select-none">
-                  <span className="text-[#4285F4]">G</span>
-                  <span className="text-[#EA4335]">P</span>
-                  <span className="text-[#FBBC05]">a</span>
-                  <span className="text-[#34A853]">y</span>
-                </span>
-              ) : (
-                <span className="uppercase text-[11px] font-extrabold tracking-wide text-emerald-700 dark:text-emerald-300">
-                  {sale.paymentMethod?.toUpperCase() || 'PAID'}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Premium Icon-Only Action Buttons Group */}
+        {/* Ultra-Premium Action Toolbar */}
+        <div className="flex items-center justify-end gap-2 p-2 sm:p-2.5 bg-gradient-to-r from-[#F7F5FA] to-[#F1EDF7] dark:from-[#1E1B2E] dark:to-[#242036] rounded-2xl border border-[#E8DEF8] dark:border-[#382E48] shadow-xs">
+          {/* Action Buttons Group */}
           <div className="flex items-center gap-1.5 sm:gap-2">
             {/* 1. WhatsApp Icon Only Button */}
             <button
