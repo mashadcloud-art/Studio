@@ -35,10 +35,26 @@ import { MyWork } from './pages/staff/MyWork'
 import { Gallery } from './pages/staff/Gallery'
 import { PaymentCollection } from './pages/receptionist/PaymentCollection'
 import { CheckIn } from './pages/staff/CheckIn'
+import { useAuth } from './contexts/AuthContext'
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 1000 * 60, retry: 1 } },
 })
+
+function RootRedirect() {
+  const { user, staff, loading } = useAuth()
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0B0618] flex-col gap-4">
+        <img src="/logo.png" alt="Nailuxe" className="w-16 h-16 animate-pulse" />
+        <div className="w-6 h-6 border-2 border-white/20 border-t-[#9C6ADE] rounded-full animate-spin" />
+      </div>
+    )
+  }
+  if (!user) return <Navigate to="/login" replace />
+  if (staff?.role === 'admin') return <Navigate to="/dashboard" replace />
+  return <Navigate to="/my-profile" replace />
+}
 
 export default function App() {
   return (
@@ -93,8 +109,8 @@ export default function App() {
               </Route>
             </Route>
 
-            <Route path="/" element={<Navigate to="/login" replace />} />
-            <Route path="*" element={<Navigate to="/login" replace />} />
+            <Route path="/" element={<RootRedirect />} />
+            <Route path="*" element={<RootRedirect />} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>

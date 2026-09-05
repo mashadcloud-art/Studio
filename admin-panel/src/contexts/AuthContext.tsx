@@ -113,6 +113,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function signOut() {
     exitStaffView()
     localStorage.removeItem('nailuxe_cached_staff')
+    try {
+      sessionStorage.setItem('nailuxe_manual_logout', 'true')
+    } catch {
+      // ignore
+    }
     await supabase.auth.signOut()
     setActualStaff(null)
   }
