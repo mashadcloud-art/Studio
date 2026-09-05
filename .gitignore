@@ -8,6 +8,8 @@ dist/
 dist-ssr/
 build/
 *.local
+*.apk
+*.aab
 
 # Environment variables & secrets
 .env
