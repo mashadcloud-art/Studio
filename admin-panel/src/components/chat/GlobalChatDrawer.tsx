@@ -84,6 +84,7 @@ export function GlobalChatDrawer({ isOpen, onClose }: GlobalChatDrawerProps) {
                 <div className="flex-1 min-h-0 overflow-hidden p-1 sm:p-2 flex flex-col">
                    <ChatThread
                     staffId={selectedStaffId}
+                    staffName={activeStaff?.name}
                     currentSenderId={currentAdmin.id}
                     currentSenderRole="admin"
                     height="100%"

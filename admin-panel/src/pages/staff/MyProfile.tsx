@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import {
-  Phone, Sparkles, Search, CalendarCheck, User, TrendingUp, NotebookPen, ChevronRight, Camera, Bell, CheckCircle2, RefreshCw
+  Phone, Sparkles, Search, CalendarCheck, User, TrendingUp, NotebookPen, ChevronRight, Camera, Bell, CheckCircle2, RefreshCw, Settings
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useStaffMonthlyReport } from '../../hooks/useReports'
@@ -15,6 +15,7 @@ import { formatCurrency } from '../../lib/utils'
 import { cn } from '../../lib/utils'
 import { Capacitor } from '@capacitor/core'
 import { dispatchPushNotification, initPushNotifications } from '../../lib/pushNotifications'
+import { StaffSettingsModal } from '../../components/staff/StaffSettingsModal'
 import toast from 'react-hot-toast'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -32,6 +33,7 @@ export function MyProfile() {
   const [showExpertPicker, setShowExpertPicker] = useState(false)
   const [savingExpert, setSavingExpert] = useState(false)
   const { availableCount } = useAvailableBookings()
+  const [showStaffSettings, setShowStaffSettings] = useState(false)
 
   const [sendingTestPush, setSendingTestPush] = useState(false)
   const [refreshingFcm, setRefreshingFcm] = useState(false)
@@ -262,9 +264,19 @@ export function MyProfile() {
                 <span className={cn('w-2 h-2 rounded-full', isOnline ? 'bg-[#79DF84] animate-pulse' : 'bg-white/50')} />
                 {isOnline ? 'ONLINE (CHECKED IN)' : 'OFFLINE'}
               </span>
-              <span className="text-xs font-mono text-white/90 bg-black/40 backdrop-blur-md px-3.5 py-1 rounded-full flex items-center gap-1.5">
-                <Phone size={11} /> {staff.phone}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono text-white/90 bg-black/40 backdrop-blur-md px-3.5 py-1 rounded-full flex items-center gap-1.5">
+                  <Phone size={11} /> {staff.phone}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowStaffSettings(true)}
+                  className="w-8 h-8 rounded-full bg-white/25 hover:bg-white/40 backdrop-blur-md text-white flex items-center justify-center transition active:scale-95 cursor-pointer shadow-sm"
+                  title="Account & App Settings"
+                >
+                  <Settings size={15} />
+                </button>
+              </div>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-none uppercase">
               {staff.name}
@@ -510,6 +522,11 @@ export function MyProfile() {
           </div>
         </div>
       </div>
+
+      <StaffSettingsModal
+        isOpen={showStaffSettings}
+        onClose={() => setShowStaffSettings(false)}
+      />
     </>
   )
 }

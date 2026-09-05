@@ -14,6 +14,7 @@ export function MyProfileNotes() {
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         <ChatThread
           staffId={staff.id}
+          staffName={staff.name}
           currentSenderId={staff.id}
           currentSenderRole="staff"
           emptyLabel="No messages yet — the studio owner can leave you a note here, and you can reply."

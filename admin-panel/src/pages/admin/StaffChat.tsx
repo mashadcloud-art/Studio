@@ -67,6 +67,7 @@ export function StaffChatPage() {
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         <ChatThread
           staffId={staff.id}
+          staffName={staff.name}
           currentSenderId={currentAdmin.id}
           currentSenderRole="admin"
           emptyLabel="No messages yet — send a note or a voice note."

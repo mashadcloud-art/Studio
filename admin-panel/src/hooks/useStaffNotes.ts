@@ -66,7 +66,11 @@ export function useSendStaffNote(staffId: string | undefined) {
         targetStaffId: isFromAdmin ? staffId : undefined,
         targetRole: isFromAdmin ? undefined : 'admin',
         title: isFromAdmin ? '💬 Studio Owner' : '💬 Staff Message',
-        body: params.message || (params.voiceUrl ? '🎤 Voice note' : 'New message'),
+        body: params.message?.startsWith('[image]')
+          ? '📷 Photo'
+          : params.message?.startsWith('[video]')
+          ? '🎥 Video'
+          : (params.message || (params.voiceUrl ? '🎤 Voice note' : 'New message')),
         data: {
           action: 'chat',
           staffId,

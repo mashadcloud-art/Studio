@@ -94,6 +94,46 @@ export async function uploadAudioToCloudinary(
 }
 
 /**
+ * Upload an image, camera photo, or video to Cloudinary using /auto/upload
+ */
+export async function uploadMediaToCloudinary(
+  file: File | Blob,
+  folder: string = 'nailuxe/chat-media',
+  onProgress?: (progress: number) => void
+): Promise<CloudinaryResult> {
+  if (!CLOUD_NAME || !UPLOAD_PRESET) {
+    throw new Error('Cloudinary not configured.')
+  }
+
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('upload_preset', UPLOAD_PRESET)
+  formData.append('folder', folder)
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`)
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) {
+        onProgress(Math.round((e.loaded / e.total) * 100))
+      }
+    }
+
+    xhr.onload = () => {
+      if (xhr.status === 200) {
+        resolve(JSON.parse(xhr.responseText))
+      } else {
+        reject(new Error(`Media upload failed: ${xhr.statusText}`))
+      }
+    }
+
+    xhr.onerror = () => reject(new Error('Network error during media upload'))
+    xhr.send(formData)
+  })
+}
+
+/**
  * Get optimized Cloudinary URL
  */
 export function getCloudinaryUrl(

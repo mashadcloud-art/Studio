@@ -59,15 +59,41 @@ export function useAppUpdate() {
         return updateInfo
       }
 
-      const map: Record<string, string> = {}
-      data.forEach((row: { key: string; value: string }) => {
-        map[row.key] = row.value
-      })
+      const map: Record<string, string> = Object.fromEntries(
+        (data || []).map((r: any) => [r.key, r.value])
+      )
 
-      const latestVer = map['app_latest_version'] || CURRENT_APP_VERSION
-      const apkUrl = map['app_apk_url'] || 'https://github.com/mashadcloud-art/Studio/releases/download/v1.0.6/Nailuxe-Studio.apk'
-      const releaseNotes = map['app_release_notes'] || 'WhatsApp-style chat bar, staff notifications, and 1-tap permissions.'
-      const isForce = map['app_force_update'] === 'true'
+      let latestVer = map['app_latest_version']
+      let apkUrl = map['app_apk_url']
+      let releaseNotes = map['app_release_notes']
+      let isForce = map['app_force_update'] === 'true'
+
+      // Check GitHub releases API as automated fallback so updates work with zero manual DB configuration
+      if (!latestVer || !isNewerVersion(latestVer, CURRENT_APP_VERSION)) {
+        try {
+          const ghRes = await fetch('https://api.github.com/repos/mashadcloud-art/Studio/releases/latest', {
+            headers: { Accept: 'application/vnd.github.v3+json' },
+          })
+          if (ghRes.ok) {
+            const ghData = await ghRes.json()
+            const ghVer = (ghData.tag_name || '').replace(/^v/, '').trim()
+            if (ghVer && isNewerVersion(ghVer, CURRENT_APP_VERSION)) {
+              latestVer = ghVer
+              releaseNotes = ghData.body || releaseNotes || 'New features and performance improvements.'
+              const apkAsset = ghData.assets?.find((a: any) => a.name?.endsWith('.apk'))
+              if (apkAsset?.browser_download_url) {
+                apkUrl = apkAsset.browser_download_url
+              }
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      latestVer = latestVer || CURRENT_APP_VERSION
+      apkUrl = apkUrl || 'https://github.com/mashadcloud-art/Studio/releases/download/v1.0.7/Nailuxe-Studio.apk'
+      releaseNotes = releaseNotes || 'Staff settings, microphone permission fix, fullscreen chat, camera & media sharing, and staff name display.'
 
       const hasUpdate = isNewerVersion(latestVer, CURRENT_APP_VERSION)
 
